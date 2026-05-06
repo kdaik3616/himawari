@@ -475,6 +475,32 @@ select{
   .print-col-value{font-size:9pt;line-height:1.5;white-space:pre-wrap;}
 }
 
+
+/* ====== UPDATE BANNER ====== */
+#update-banner{
+  position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:linear-gradient(90deg,#1a5c2e,#2d8a4a);
+  color:white;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;gap:10px;
+  box-shadow:0 3px 12px rgba(0,0,0,0.3);
+  border-bottom:2px solid var(--sun);
+  animation:slideDown 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes slideDown{from{transform:translateY(-100%);}to{transform:translateY(0);}}
+#update-banner .upd-text{font-size:13px;font-weight:600;flex:1;}
+#update-banner .upd-text small{display:block;font-size:10px;opacity:0.7;margin-top:1px;}
+#update-banner .upd-btn{
+  background:var(--sun);color:#2B4419;
+  border:none;border-radius:16px;padding:7px 14px;
+  font-family:'M PLUS Rounded 1c',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+}
+#update-banner .upd-dismiss{
+  background:none;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);
+  border-radius:12px;padding:5px 10px;font-size:11px;cursor:pointer;
+  font-family:'M PLUS Rounded 1c',sans-serif;flex-shrink:0;
+}
+
 /* ====== BOTTOM NAV (mobile only) ====== */
 .bottom-nav{
   display:none;position:fixed;bottom:0;left:0;right:0;
@@ -886,7 +912,8 @@ select{
             <div class="section-body">
               <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">全データをJSONとしてエクスポートできます。</p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn-secondary" onclick="exportJSON()">📥 JSONエクスポート</button>
+                <button class="btn-secondary" onclick="manualCheckUpdate()">🔄 更新を確認</button>
+              <button class="btn-secondary" onclick="exportJSON()">📥 JSONエクスポート</button>
                 <button class="btn-secondary" onclick="document.getElementById('import-file').click()">📤 JSONインポート</button>
                 <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importJSON(event)">
               </div>
@@ -961,10 +988,6 @@ function saveStorage(){
 function initDefaultUsers(){
   users=[
     {id:'u1',name:'園長',role:'principal',pin:'1234'},
-    {id:'u2',name:'副園長',role:'vice_principal',pin:'1234'},
-    {id:'u3',name:'田中先生',role:'staff',pin:'1234'},
-    {id:'u4',name:'鈴木先生',role:'staff',pin:'1234'},
-    {id:'u5',name:'山田先生',role:'staff',pin:'1234'},
   ];
   saveStorage();
 }
@@ -1080,6 +1103,7 @@ function onLogin(){
   document.getElementById('input-staff-name').value=u.name;
   setDefaultDate();
   renderYearTree();
+  setTimeout(checkForUpdate, 3000);
   renderBottomNav();
   updateNoticeBadge();
   if(isAdmin(u)){showView('entries');cvFilter={year:null,staff:null};}
@@ -1737,6 +1761,57 @@ document.addEventListener('click',e=>{
   if(window.innerWidth<768&&sb.classList.contains('open')&&!sb.contains(e.target)&&!e.target.classList.contains('menu-btn'))
     sb.classList.remove('open');
 });
+
+
+// ==================================================
+// VERSION CHECK & AUTO UPDATE
+// ==================================================
+const APP_VERSION = '20260506-001';
+
+function showUpdateBanner() {
+  if(document.getElementById('update-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'update-banner';
+  b.innerHTML = `
+    <div class="upd-text">
+      🔄 新しいバージョンがあります
+      <small>タップして最新の状態に更新してください</small>
+    </div>
+    <button class="upd-btn" onclick="forceReload()">今すぐ更新</button>
+    <button class="upd-dismiss" onclick="this.parentElement.remove()">後で</button>`;
+  document.body.prepend(b);
+}
+
+function forceReload() {
+  // Clear all caches and reload
+  if('caches' in window) {
+    caches.keys().then(names => names.forEach(n => caches.delete(n)));
+  }
+  location.href = location.pathname + '?nocache=' + Date.now();
+}
+
+async function checkForUpdate() {
+  if(!navigator.onLine) return;
+  try {
+    const url = location.pathname + '?_v=' + Date.now();
+    const res = await fetch(url, {cache:'no-store', method:'GET'});
+    if(!res.ok) return;
+    const text = await res.text();
+    const m = text.match(/APP_VERSION\s*=\s*['"]([^'"]+)['"]/);
+    if(m && m[1] && m[1] !== APP_VERSION) {
+      showUpdateBanner();
+    }
+  } catch(e) { /* offline */ }
+}
+
+// Manual check for settings page
+function manualCheckUpdate() {
+  checkForUpdate().then(() => {
+    if(!document.getElementById('update-banner')) {
+      showToast('✅ 最新バージョンです');
+    }
+  });
+}
 
 // ==================================================
 // NOTICES
