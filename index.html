@@ -677,6 +677,68 @@ select{
     padding:20px 20px 28px;
     border-radius:0;
   }
+
+  /* PIN入力：フルスクリーン（写真を隠して全画面表示） */
+  .login-box.pin-mode .login-header-band{
+    height:0 !important;
+    border-bottom:none !important;
+    overflow:hidden;
+    flex-shrink:0;
+  }
+  .login-box.pin-mode .login-body{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow-y:auto;
+    padding:32px 28px 40px;
+    background:#ffffff;
+  }
+  .login-box.pin-mode .pin-user-display{
+    background:var(--cream);
+    border-color:var(--border);
+    margin-bottom:24px;
+  }
+  .login-box.pin-mode .pin-user-name{color:var(--text);font-size:20px;}
+  .login-box.pin-mode .pin-user-role{color:var(--warm-gray);}
+  .login-box.pin-mode .pin-user-avatar-lg{border-color:var(--border);}
+  .login-box.pin-mode .pin-display{margin:0 0 32px;gap:18px;}
+  .login-box.pin-mode .pin-dot{
+    width:24px;height:24px;
+    border-color:var(--border);
+    background:var(--cream);
+  }
+  .login-box.pin-mode .pin-dot.filled{
+    background:var(--sun-dark);
+    border-color:var(--sun-dark);
+    box-shadow:0 0 0 5px var(--sun-light);
+    transform:scale(1.2);
+  }
+  .login-box.pin-mode .pin-grid{gap:14px;}
+  .login-box.pin-mode .pin-btn{
+    padding:22px 12px;
+    font-size:28px;
+    border-radius:18px;
+    background:var(--cream);
+    border-color:var(--border);
+    color:var(--text);
+    box-shadow:0 2px 6px rgba(0,0,0,0.07);
+    min-height:70px;
+  }
+  .login-box.pin-mode .pin-btn:active{
+    background:var(--sun);
+    border-color:var(--sun-dark);
+    color:var(--green-dark);
+    transform:scale(0.88);
+  }
+  .login-box.pin-mode .login-error{color:var(--danger);margin-top:14px;}
+  .login-box.pin-mode .btn-login-back{
+    color:var(--warm-gray);
+    margin-top:20px;
+    display:block;
+    text-align:center;
+    font-size:14px;
+  }
   .pin-btn{padding:18px;font-size:22px;border-radius:14px;min-height:60px;}
   .pin-dot{width:16px;height:16px;}
   .pin-grid{gap:10px;}
@@ -1161,12 +1223,14 @@ function selectLoginUser(uid){
   document.getElementById('login-error').textContent='';
   document.getElementById('login-step1').classList.remove('active');
   document.getElementById('login-step2').classList.add('active');
+  document.querySelector('.login-box')?.classList.add('pin-mode');
 }
 
 function backToUsers(){
   loginSelectedUser=null;pinBuffer='';
   document.getElementById('login-step1').classList.add('active');
   document.getElementById('login-step2').classList.remove('active');
+  document.querySelector('.login-box')?.classList.remove('pin-mode');
   const s=document.getElementById('login-search');
   if(s){s.value='';renderLoginUsers();}
 }
