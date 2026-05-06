@@ -364,6 +364,12 @@ select{
   border:1px dashed #A8D5AA;
 }
 
+.notice-author{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.notice-author-avatar{width:24px;height:24px;border-radius:50%;background:var(--green-light);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;border:1.5px solid #A8D5AA;}
+.notice-author-avatar.admin{background:var(--sun-light);color:var(--sun-dark);border-color:var(--sun);}
+.notice-author-name{font-size:13px;font-weight:600;color:var(--text);}
+.notice-author-time{font-size:11px;color:var(--warm-gray);margin-left:2px;}
+
 .range-opt{
   display:flex;align-items:center;gap:6px;padding:7px 14px;
   background:var(--cream);border:2px solid var(--border);border-radius:20px;
@@ -1777,32 +1783,35 @@ function buildNoticeCard(n){
   const canDelete=isAdmin(u)||n.authorId===u.id;
   const ranges=(n.ranges||['all']).map(r=>RANGE_LABEL[r]||r).join('・');
 
-  // Who has read / not read (admin only)
-  let readSection='';
-  if(isAdmin(u)){
-    const eligible=users.filter(x=>canSeeNotice(x,n));
-    const readIds=new Set((n.readBy||[]).map(r=>r.userId));
-    const readList=(n.readBy||[]).map(r=>`
-      <div class="notice-read-item">
-        ✓ ${r.userName}
-        <span class="notice-read-time">${fmtDt(r.readAt)}</span>
-      </div>`).join('');
-    const unreadList=eligible.filter(x=>!readIds.has(x.id)).map(x=>`
-      <div class="notice-unread-item">⏳ ${x.name}</div>`).join('');
-    readSection=`
-      <div class="notice-read-section">
-        <div class="notice-read-title">✅ 確認状況（${(n.readBy||[]).length}/${eligible.length}名）</div>
-        <div class="notice-read-list">${readList||'<span style="font-size:12px;color:var(--warm-gray);">まだ誰も確認していません</span>'}</div>
-        ${unreadList?`<div style="font-size:11px;color:var(--warm-gray);margin-top:6px;margin-bottom:4px;">未確認</div><div class="notice-unread-list">${unreadList}</div>`:''}
-      </div>`;
-  }
+  // 確認状況（全員に表示）
+  const eligible=users.filter(x=>canSeeNotice(x,n));
+  const readIds=new Set((n.readBy||[]).map(r=>r.userId));
+  const readList=(n.readBy||[]).map(r=>`
+    <div class="notice-read-item">
+      ✓ ${r.userName}
+      <span class="notice-read-time">${fmtDt(r.readAt)}</span>
+    </div>`).join('');
+  const unreadList=eligible.filter(x=>!readIds.has(x.id)).map(x=>`
+    <div class="notice-unread-item">⏳ ${x.name}</div>`).join('');
+
+  const readSection=`
+    <div class="notice-read-section">
+      <div class="notice-read-title">✅ 確認状況（${(n.readBy||[]).length}／${eligible.length}名）</div>
+      <div class="notice-read-list">${readList||'<span style="font-size:12px;color:var(--warm-gray);">まだ誰も確認していません</span>'}</div>
+      ${unreadList?`<div style="font-size:11px;color:var(--warm-gray);margin-top:8px;margin-bottom:4px;">未確認</div><div class="notice-unread-list">${unreadList}</div>`:''}
+    </div>`;
 
   return `
   <div class="notice-card ${isRead?'':'unread'}" id="ncard-${n.id}">
     <div class="notice-card-header">
       <div style="flex:1;min-width:0;">
         <div class="notice-title">${esc(n.title)}</div>
-        <div class="notice-meta">${n.authorName} ／ ${fmtDate(n.createdAt.split('T')[0])} ${fmtDt(n.createdAt)}</div>
+        <div class="notice-author">
+          <span class="notice-author-avatar ${n.authorRole==='principal'||n.authorRole==='vice_principal'?'admin':''}">${n.authorName.charAt(0)}</span>
+          <span class="notice-author-name">${n.authorName}</span>
+          <span class="role-badge role-${n.authorRole}">${ROLE_LABEL[n.authorRole]}</span>
+          <span class="notice-author-time">${fmtDt(n.createdAt)}</span>
+        </div>
       </div>
       ${isRead?`<span class="notice-badge-read">✓ 確認済み</span>`:`<span class="notice-badge-unread">● 未確認</span>`}
     </div>
