@@ -61,6 +61,44 @@ body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--
 .login-logo-sub{font-size:11px;color:var(--warm-gray);margin-top:6px;}
 .login-logo-img{width:180px;max-width:80%;margin-bottom:6px;display:block;margin-left:auto;margin-right:auto;}
 
+/* ログイン検索リスト */
+.login-search-wrap{margin-bottom:10px;}
+.login-search-input{
+  width:100%;padding:11px 14px;border:2px solid var(--border);border-radius:12px;
+  font-family:'M PLUS Rounded 1c',sans-serif;font-size:15px;
+  color:var(--text);background:var(--cream);
+  transition:border-color 0.2s,box-shadow 0.2s;
+}
+.login-search-input:focus{
+  outline:none;border-color:var(--sun);
+  box-shadow:0 0 0 3px rgba(245,197,24,0.2);background:var(--white);
+}
+.user-list{max-height:280px;overflow-y:auto;border-radius:12px;border:1.5px solid var(--border);}
+.user-list-group-label{
+  font-size:10px;font-weight:700;letter-spacing:0.1em;
+  color:var(--warm-gray);background:var(--cream);
+  padding:6px 14px 4px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;
+}
+.user-list-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;cursor:pointer;
+  background:var(--white);border-bottom:1px solid var(--border);
+  transition:background 0.15s;-webkit-tap-highlight-color:transparent;
+}
+.user-list-item:last-child{border-bottom:none;}
+.user-list-item:hover,.user-list-item:active{background:var(--sun-light);}
+.user-list-avatar{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;
+}
+.avatar-principal{background:var(--sun-light);color:var(--sun-dark);border:2px solid var(--sun);}
+.avatar-vice{background:#f0e8ff;color:#6B3FA0;border:2px solid #C9A0DC;}
+.avatar-staff{background:var(--green-light);color:var(--green-dark);border:2px solid #A8D5AA;}
+.user-list-name{font-size:15px;font-weight:600;color:var(--text);flex:1;}
+.user-list-no-result{padding:20px;text-align:center;font-size:13px;color:var(--warm-gray);}
+
 .login-step{display:none;}
 .login-step.active{display:block;}
 .login-label{font-size:12px;color:var(--text-light);margin-bottom:8px;font-weight:600;letter-spacing:0.04em;}
@@ -567,9 +605,12 @@ select{
 
     <!-- Step 1: select user -->
     <div id="login-step1" class="login-step active">
-      <div class="login-label">ユーザーを選択</div>
-      <div id="user-grid-login" class="user-grid"></div>
-      <div style="text-align:center;margin-top:12px;">
+      <div class="login-label">名前を選択またはキーワードで検索</div>
+      <div class="login-search-wrap">
+        <input type="text" id="login-search" class="login-search-input" placeholder="🔍 名前で検索..." oninput="filterLoginUsers()" autocomplete="off">
+      </div>
+      <div id="user-list-login" class="user-list"></div>
+      <div style="text-align:center;margin-top:10px;">
         <span style="font-size:11px;color:var(--text-light);">ユーザーが見つからない場合は管理者にお問い合わせください</span>
       </div>
     </div>
@@ -663,9 +704,6 @@ select{
 
         <!-- INPUT VIEW -->
         <div id="view-input" class="view active">
-          <div style="background:var(--accent-light);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:var(--accent);margin-bottom:16px;line-height:1.5;">
-            📱 スマートフォンからもこのページにアクセスして記録できます。
-          </div>
           <div class="section-card">
             <div class="section-header sh-sky">👤 基本情報</div>
             <div class="section-body">
@@ -926,13 +964,42 @@ function initDefaultUsers(){
 let loginSelectedUser=null;
 let pinBuffer='';
 
-function renderLoginUsers(){
-  const grid=document.getElementById('user-grid-login');
-  grid.innerHTML=users.map(u=>`
-    <div class="user-card" onclick="selectLoginUser('${u.id}')">
-      <div class="user-card-name">${u.name}</div>
-      <div class="user-card-role"><span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span></div>
-    </div>`).join('');
+function renderLoginUsers(filter=''){
+  const list=document.getElementById('user-list-login');
+  if(!list) return;
+  const q=filter.trim().toLowerCase();
+  const filtered=users.filter(u=>!q||u.name.toLowerCase().includes(q));
+
+  if(!filtered.length){
+    list.innerHTML=`<div class="user-list-no-result">「${filter}」に一致するユーザーが見つかりません</div>`;
+    return;
+  }
+
+  // group by role order
+  const order=['principal','vice_principal','staff'];
+  const grouped={};
+  order.forEach(r=>{grouped[r]=[];});
+  filtered.forEach(u=>{if(grouped[u.role])grouped[u.role].push(u);else grouped['staff'].push(u);});
+
+  const roleNames={'principal':'園長','vice_principal':'副園長','staff':'職員'};
+  let html='';
+  order.forEach(role=>{
+    const group=grouped[role];
+    if(!group.length) return;
+    html+=`<div class="user-list-group-label">${roleNames[role]}</div>`;
+    html+=group.map(u=>`
+      <div class="user-list-item" onclick="selectLoginUser('${u.id}')">
+        <div class="user-list-avatar avatar-${u.role}">${u.name.charAt(0)}</div>
+        <span class="user-list-name">${u.name}</span>
+        <span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span>
+      </div>`).join('');
+  });
+  list.innerHTML=html;
+}
+
+function filterLoginUsers(){
+  const q=document.getElementById('login-search')?.value||'';
+  renderLoginUsers(q);
 }
 
 function selectLoginUser(uid){
@@ -951,6 +1018,8 @@ function backToUsers(){
   loginSelectedUser=null;pinBuffer='';
   document.getElementById('login-step1').classList.add('active');
   document.getElementById('login-step2').classList.remove('active');
+  const s=document.getElementById('login-search');
+  if(s){s.value='';renderLoginUsers();}
 }
 
 function pinInput(d){
