@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保育日誌システム</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap');
+
+:root {
+  --cream:#faf8f4; --sage:#7a9e7e; --sage-light:#d0e4d2; --sage-dark:#4a6e4e;
+  --warm-gray:#8a8278; --border:#d4cfc8; --text:#2a2520; --text-light:#6b6560;
+  --accent:#c4865a; --accent-light:#f0ddd0; --white:#ffffff;
+  --sidebar-bg:#2a3d2c; --sidebar-hover:#3a5040; --sidebar-active:#4a6e4e;
+  --shadow:0 2px 12px rgba(42,37,32,0.10);
+  --confirm:#3b82c4; --confirm-light:#dbeafe;
+  --comment-bg:#fdfaf5; --danger:#cc4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+/* ====== LOGIN SCREEN ====== */
+#login-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;background:linear-gradient(135deg,var(--sidebar-bg) 0%,#1a2b1c 100%);
+}
+.login-box{
+  background:var(--white);border-radius:20px;padding:40px 36px;
+  width:360px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo-icon{font-size:44px;}
+.login-logo-title{font-family:'Noto Serif JP',serif;font-size:18px;font-weight:600;color:var(--sage-dark);margin-top:8px;letter-spacing:0.05em;}
+.login-logo-sub{font-size:12px;color:var(--warm-gray);margin-top:4px;}
+
+.login-step{display:none;}
+.login-step.active{display:block;}
+.login-label{font-size:12px;color:var(--text-light);margin-bottom:8px;font-weight:500;}
+
+.user-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
+.user-card{
+  padding:12px 10px;border:2px solid var(--border);border-radius:10px;
+  text-align:center;cursor:pointer;transition:all 0.2s;background:var(--cream);
+}
+.user-card:hover{border-color:var(--sage);background:var(--sage-light);}
+.user-card.selected{border-color:var(--sage-dark);background:var(--sage-light);}
+.user-card-name{font-size:13px;font-weight:600;color:var(--text);}
+.user-card-role{font-size:11px;color:var(--warm-gray);margin-top:2px;}
+.role-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;}
+.role-principal{background:#fef3c7;color:#92400e;}
+.role-vice{background:#ede9fe;color:#5b21b6;}
+.role-staff{background:var(--sage-light);color:var(--sage-dark);}
+
+.pin-display{display:flex;gap:10px;justify-content:center;margin:16px 0;}
+.pin-dot{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid var(--border);background:var(--cream);
+  transition:background 0.2s;
+}
+.pin-dot.filled{background:var(--sage-dark);border-color:var(--sage-dark);}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.pin-btn{
+  padding:14px;font-size:18px;font-weight:500;
+  background:var(--cream);border:1.5px solid var(--border);
+  border-radius:10px;cursor:pointer;transition:all 0.2s;
+  font-family:'Noto Sans JP',sans-serif;
+}
+.pin-btn:hover{background:var(--sage-light);border-color:var(--sage);}
+.pin-btn:active{transform:scale(0.95);}
+
+.login-error{color:var(--danger);font-size:13px;text-align:center;margin-top:8px;min-height:20px;}
+.btn-login-back{background:none;border:none;color:var(--warm-gray);font-size:13px;cursor:pointer;padding:8px 0;text-decoration:underline;}
+
+/* ====== APP ====== */
+#app{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+#app.visible{display:flex;}
+
+.app-header{
+  background:var(--sidebar-bg);color:white;
+  padding:11px 20px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+.app-header-left{display:flex;align-items:center;gap:12px;}
+.menu-btn{background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:2px 6px;display:none;}
+.app-title{font-family:'Noto Serif JP',serif;font-size:14px;font-weight:600;letter-spacing:0.05em;}
+.app-title-sub{font-size:11px;opacity:0.5;margin-top:1px;}
+.user-info{display:flex;align-items:center;gap:8px;}
+.user-info-name{font-size:13px;color:rgba(255,255,255,0.8);}
+.btn-logout{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:background 0.2s;}
+.btn-logout:hover{background:rgba(255,255,255,0.2);}
+
+.app-shell{display:flex;flex:1;overflow:hidden;}
+
+/* ====== SIDEBAR ====== */
+.sidebar{width:240px;background:var(--sidebar-bg);color:#e8ede8;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;transition:transform 0.3s;}
+.sidebar-section-label{font-size:10px;letter-spacing:0.12em;opacity:0.4;padding:12px 16px 4px;text-transform:uppercase;display:block;}
+.snav-btn{width:100%;display:flex;align-items:center;gap:8px;padding:9px 14px;border:none;background:none;color:#9ab89c;font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;border-radius:6px;transition:background 0.15s;text-align:left;}
+.snav-btn:hover{background:var(--sidebar-hover);color:#c8d8ca;}
+.snav-btn.active{background:var(--sidebar-active);color:#fff;}
+.sdivider{height:1px;background:rgba(255,255,255,0.08);margin:6px 12px;}
+
+.year-btn{width:100%;display:flex;align-items:center;gap:6px;padding:8px 12px;border:none;background:none;color:#c8d8ca;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;transition:background 0.15s;text-align:left;}
+.year-btn:hover{background:var(--sidebar-hover);}
+.year-icon{font-size:10px;transition:transform 0.2s;display:inline-block;}
+.year-btn.open .year-icon{transform:rotate(90deg);}
+.staff-list{padding-left:12px;}
+.staff-btn{width:100%;display:flex;align-items:center;gap:6px;padding:6px 12px;border:none;background:none;color:#9ab89c;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;border-radius:6px;transition:background 0.15s;text-align:left;}
+.staff-btn:hover{background:var(--sidebar-hover);color:#c8d8ca;}
+.staff-btn.active{background:var(--sidebar-active);color:#fff;}
+.sbadge{margin-left:auto;background:rgba(255,255,255,0.12);border-radius:10px;padding:1px 6px;font-size:10px;}
+
+/* ====== MAIN ====== */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;}
+.topbar-title{font-size:15px;font-weight:700;color:var(--sage-dark);}
+.topbar-sub{font-size:12px;color:var(--text-light);margin-top:1px;}
+.topbar-actions{display:flex;gap:8px;align-items:center;}
+.content{flex:1;overflow-y:auto;padding:20px;}
+
+/* ====== VIEWS ====== */
+.view{display:none;}
+.view.active{display:block;}
+
+/* ====== FORM ====== */
+.section-card{background:var(--white);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;}
+.section-header{background:var(--sage);color:white;padding:10px 16px;font-size:13px;font-weight:500;letter-spacing:0.04em;}
+.section-header.accent{background:var(--accent);}
+.section-body{padding:16px;}
+.field-row{display:flex;gap:12px;margin-bottom:12px;}
+.field-group{display:flex;flex-direction:column;flex:1;}
+.field-label{font-size:11px;color:var(--text-light);margin-bottom:4px;font-weight:500;}
+.req{color:var(--accent);}
+input[type=text],input[type=date],input[type=month],select,textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);background:var(--cream);transition:border-color 0.2s,box-shadow 0.2s;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sage);box-shadow:0 0 0 3px rgba(122,158,126,0.15);background:var(--white);}
+textarea{resize:vertical;min-height:80px;line-height:1.7;}
+textarea.tall{min-height:120px;}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8278' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+
+.btn-primary{padding:10px 18px;background:var(--sage-dark);color:white;border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-primary:hover{background:var(--sage);}
+.btn-primary.full{width:100%;padding:14px;font-size:15px;}
+.btn-secondary{padding:8px 14px;background:var(--white);color:var(--sage-dark);border:1.5px solid var(--sage-dark);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-secondary:hover{background:var(--sage-light);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.btn-danger{padding:6px 12px;background:none;color:var(--danger);border:1.5px solid var(--danger);border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;transition:all 0.2s;}
+.btn-danger:hover{background:#fff0f0;}
+.btn-confirm{padding:7px 14px;background:var(--confirm-light);color:var(--confirm);border:1.5px solid var(--confirm);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-confirm:hover{background:var(--confirm);color:white;}
+.btn-confirmed{padding:7px 14px;background:var(--confirm);color:white;border:1.5px solid var(--confirm);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:600;cursor:default;white-space:nowrap;}
+
+/* ====== ENTRIES ====== */
+.entry-grid{display:flex;flex-direction:column;gap:18px;}
+.entry-card{background:var(--white);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;border-left:4px solid var(--sage);}
+.entry-card.unconfirmed{border-left-color:var(--accent);}
+.entry-card-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,var(--sage-light),var(--cream));border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+.entry-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.entry-date{font-size:15px;font-weight:700;color:var(--sage-dark);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;}
+.badge-sage{background:var(--sage-light);color:var(--sage-dark);}
+.badge-year{background:#e0f2fe;color:#0369a1;}
+.badge-confirm{background:var(--confirm);color:white;}
+.badge-pending{background:var(--accent-light);color:var(--accent);}
+.entry-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.entry-body{padding:16px;}
+.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.report-field.full{grid-column:1/-1;}
+.rfl{font-size:10px;font-weight:700;color:var(--sage-dark);letter-spacing:0.06em;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid var(--sage-light);}
+.rfv{font-size:13px;line-height:1.6;white-space:pre-wrap;}
+.rfv.empty{color:var(--border);font-style:italic;font-size:11px;}
+.weekly-goal{padding:8px 12px;background:var(--sage-light);border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--sage-dark);}
+.wg-label{font-size:10px;font-weight:700;letter-spacing:0.06em;margin-bottom:2px;}
+.entry-episode{margin-top:10px;padding:10px 12px;background:var(--accent-light);border-radius:8px;border-left:3px solid var(--accent);}
+.ep-label{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.06em;margin-bottom:3px;}
+.ep-text{font-size:13px;line-height:1.6;white-space:pre-wrap;}
+
+/* ====== CONFIRMATION ====== */
+.confirm-section{margin-top:14px;padding:12px 14px;background:var(--confirm-light);border-radius:10px;border:1px solid #bfdbfe;}
+.confirm-title{font-size:11px;font-weight:700;color:var(--confirm);letter-spacing:0.06em;margin-bottom:8px;}
+.confirm-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.confirm-item{display:flex;align-items:center;gap:4px;background:var(--confirm);color:white;padding:4px 10px;border-radius:16px;font-size:12px;}
+.confirm-item-time{font-size:10px;opacity:0.75;margin-left:2px;}
+
+/* ====== COMMENTS ====== */
+.comment-section{margin-top:14px;border-top:1px solid var(--border);padding-top:14px;}
+.comment-title{font-size:11px;font-weight:700;color:var(--text-light);letter-spacing:0.06em;margin-bottom:10px;}
+.comment-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.comment-item{display:flex;gap:10px;}
+.comment-avatar{width:32px;height:32px;border-radius:50%;background:var(--sage-light);color:var(--sage-dark);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.comment-avatar.admin{background:#fef3c7;color:#92400e;}
+.comment-bubble{flex:1;background:var(--cream);border-radius:0 10px 10px 10px;padding:8px 12px;border:1px solid var(--border);}
+.comment-bubble.own{background:var(--sage-light);border-color:var(--sage);}
+.comment-meta{font-size:11px;color:var(--text-light);margin-bottom:3px;}
+.comment-meta strong{color:var(--text);font-size:12px;}
+.comment-text{font-size:13px;line-height:1.5;}
+.comment-input-area{display:flex;gap:8px;}
+.comment-input-area textarea{min-height:52px;}
+
+.no-data{text-align:center;padding:60px 24px;color:var(--warm-gray);}
+.no-data-icon{font-size:54px;margin-bottom:14px;}
+.no-data-text{font-size:14px;line-height:1.8;}
+
+/* ====== FILTER BAR ====== */
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:10px;padding:14px;margin-bottom:16px;box-shadow:var(--shadow);}
+.filter-bar .field-group{min-width:130px;max-width:180px;}
+
+/* ====== SETTINGS ====== */
+.staff-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+.staff-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--sage-light);border-radius:20px;font-size:13px;color:var(--sage-dark);}
+.chip-del{background:none;border:none;color:var(--danger);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;}
+.add-row{display:flex;gap:8px;}
+.user-table{width:100%;border-collapse:collapse;font-size:13px;}
+.user-table th{text-align:left;padding:9px 10px;background:var(--sage-light);color:var(--sage-dark);font-weight:600;}
+.user-table td{padding:9px 10px;border-bottom:1px solid var(--border);}
+.user-table tr:last-child td{border-bottom:none;}
+
+/* ====== TOAST ====== */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--sidebar-bg);color:white;padding:12px 24px;border-radius:24px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ====== PRINT ====== */
+#print-area{display:none;}
+@media print{
+  @page{size:A4 landscape;margin:8mm;}
+  body *{visibility:hidden!important;}
+  #print-area,#print-area *{visibility:visible!important;}
+  #print-area{display:block!important;position:fixed;top:0;left:0;width:100%;z-index:9999;background:white;}
+  .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
+  .print-page:last-child{page-break-after:avoid;}
+  .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:180mm;}
+  .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 3mm;border-bottom:1pt solid #000;font-size:8.5pt;font-weight:bold;}
+  .print-weekly{padding:2mm 3mm;border-bottom:1pt solid #000;}
+  .print-weekly-label{font-size:7.5pt;color:#444;}
+  .print-weekly-value{font-size:9pt;min-height:8mm;white-space:pre-wrap;}
+  .print-date-row{display:flex;align-items:stretch;border-bottom:1pt solid #000;}
+  .print-date-cell{padding:2mm 3mm;border-right:1pt solid #000;flex:1;}
+  .print-date-cell:last-child{border-right:none;flex:0 0 auto;min-width:22mm;}
+  .print-date-label{font-size:7.5pt;color:#444;}
+  .print-date-value{font-size:9pt;font-weight:bold;}
+  .print-body{display:flex;flex:1;border-bottom:1pt solid #000;}
+  .print-col-activity{flex:0 0 30%;border-right:1pt solid #000;padding:2mm 3mm;}
+  .print-col-support{flex:0 0 35%;border-right:1pt solid #000;padding:2mm 3mm;}
+  .print-col-right{flex:1;display:flex;flex-direction:column;}
+  .print-col-right-cell{padding:2mm 3mm;border-bottom:1pt solid #000;flex:1;}
+  .print-col-right-cell:last-child{border-bottom:none;}
+  .print-episode{padding:2mm 3mm;min-height:20mm;}
+  .print-col-label{font-size:7.5pt;color:#444;margin-bottom:1mm;display:block;}
+  .print-col-value{font-size:9pt;line-height:1.5;white-space:pre-wrap;}
+}
+
+/* ====== RESPONSIVE ====== */
+@media(max-width:768px){
+  .sidebar{display:none;position:fixed;top:0;left:0;height:100%;z-index:500;width:260px;}
+  .sidebar.open{display:flex;}
+  .menu-btn{display:block;}
+  .report-grid{grid-template-columns:1fr;}
+  .filter-bar .field-group{min-width:100%;}
+  .entry-card-header{flex-direction:column;align-items:flex-start;}
+  .user-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== LOGIN SCREEN ====== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">📋</div>
+      <div class="login-logo-title">保育日誌システム</div>
+      <div class="login-logo-sub">ユーザーを選択してPINを入力してください</div>
+    </div>
+
+    <!-- Step 1: select user -->
+    <div id="login-step1" class="login-step active">
+      <div class="login-label">ユーザーを選択</div>
+      <div id="user-grid-login" class="user-grid"></div>
+      <div style="text-align:center;margin-top:12px;">
+        <span style="font-size:11px;color:var(--text-light);">ユーザーが見つからない場合は管理者にお問い合わせください</span>
+      </div>
+    </div>
+
+    <!-- Step 2: enter PIN -->
+    <div id="login-step2" class="login-step">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div id="login-selected-name" style="font-size:16px;font-weight:700;color:var(--sage-dark);"></div>
+        <div id="login-selected-role" style="font-size:12px;color:var(--warm-gray);margin-top:2px;"></div>
+      </div>
+      <div class="pin-display" id="pin-display">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-btn" onclick="pinInput('1')">1</button>
+        <button class="pin-btn" onclick="pinInput('2')">2</button>
+        <button class="pin-btn" onclick="pinInput('3')">3</button>
+        <button class="pin-btn" onclick="pinInput('4')">4</button>
+        <button class="pin-btn" onclick="pinInput('5')">5</button>
+        <button class="pin-btn" onclick="pinInput('6')">6</button>
+        <button class="pin-btn" onclick="pinInput('7')">7</button>
+        <button class="pin-btn" onclick="pinInput('8')">8</button>
+        <button class="pin-btn" onclick="pinInput('9')">9</button>
+        <button class="pin-btn" onclick="pinClear()" style="font-size:14px;">✕</button>
+        <button class="pin-btn" onclick="pinInput('0')">0</button>
+        <button class="pin-btn" onclick="pinBack()" style="font-size:16px;">⌫</button>
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn-login-back" onclick="backToUsers()">← ユーザー選択に戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== APP ====== -->
+<div id="app">
+  <div class="app-header">
+    <div class="app-header-left">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div>
+        <div class="app-title">📋 保育日誌システム</div>
+        <div class="app-title-sub">幼稚園・保育所 日誌管理</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <span class="user-info-name" id="header-user-name"></span>
+      <button class="btn-logout" onclick="logout()">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div style="padding:8px;">
+        <div id="sidebar-input-btn">
+          <button class="snav-btn active" id="nav-input" onclick="showView('input')">✏️ 日誌入力</button>
+        </div>
+        <div class="sdivider"></div>
+        <span class="sidebar-section-label">📁 年度別ファイル</span>
+        <div id="year-tree"></div>
+        <div class="sdivider" id="admin-divider" style="display:none;"></div>
+        <div id="admin-sidebar" style="display:none;">
+          <button class="snav-btn" id="nav-users" onclick="showView('users')">👥 ユーザー管理</button>
+        </div>
+        <div class="sdivider"></div>
+        <button class="snav-btn" id="nav-settings" onclick="showView('settings')">⚙️ 設定</button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-area">
+      <div class="topbar" id="topbar">
+        <div>
+          <div class="topbar-title" id="topbar-title">日誌入力</div>
+          <div class="topbar-sub" id="topbar-sub">毎日の記録を入力</div>
+        </div>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </div>
+
+      <div class="content">
+
+        <!-- INPUT VIEW -->
+        <div id="view-input" class="view active">
+          <div style="background:var(--accent-light);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:var(--accent);margin-bottom:16px;line-height:1.5;">
+            📱 スマートフォンからもこのページにアクセスして記録できます。
+          </div>
+          <div class="section-card">
+            <div class="section-header">👤 基本情報</div>
+            <div class="section-body">
+              <div class="field-row">
+                <div class="field-group">
+                  <label class="field-label">職員名</label>
+                  <input type="text" id="input-staff-name" readonly style="background:var(--sage-light);color:var(--sage-dark);font-weight:500;">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">日付 <span class="req">*</span></label>
+                  <input type="date" id="input-date" onchange="updateWeekday()">
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label class="field-label">曜日</label>
+                  <input type="text" id="input-weekday" readonly style="background:var(--sage-light);color:var(--sage-dark);">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">天気</label>
+                  <select id="input-weather">
+                    <option value="晴">☀️ 晴</option><option value="曇">🌥 曇</option>
+                    <option value="雨">🌧 雨</option><option value="雪">❄️ 雪</option>
+                    <option value="晴時々曇">⛅ 晴時々曇</option><option value="曇時々雨">🌦 曇時々雨</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header">🎯 週のねらい</div>
+            <div class="section-body"><textarea id="input-weekly-goal" class="tall" placeholder="例：友達と協力して遊びを楽しむ。季節の変化に気づく。"></textarea></div>
+          </div>
+          <div class="section-card">
+            <div class="section-header">📌 今日のねらい</div>
+            <div class="section-body"><textarea id="input-daily-goal" placeholder="例：体を動かす遊びを通じて、友達と楽しく関わる。"></textarea></div>
+          </div>
+          <div class="section-card">
+            <div class="section-header">🏃 活動内容 / 保育者の援助・気づき</div>
+            <div class="section-body">
+              <div class="field-group" style="margin-bottom:12px;"><label class="field-label">活動内容</label><textarea id="input-activity" class="tall" placeholder="例：サーキット運動・ボール遊び・自由遊び"></textarea></div>
+              <div class="field-group" style="margin-bottom:12px;"><label class="field-label">保育者の援助・配慮・気づき</label><textarea id="input-support" class="tall" placeholder="例：個別に声かけを行い、全員が参加できるよう配慮した。"></textarea></div>
+              <div class="field-group"><label class="field-label">主な活動・設定保育</label><textarea id="input-main-activity" placeholder="例：体操教室、絵本の読み聞かせ"></textarea></div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header accent">📞 連絡事項</div>
+            <div class="section-body">
+              <div class="field-group" style="margin-bottom:12px;"><label class="field-label">欠席・早退・遅刻（名前・理由）</label><textarea id="input-absence" placeholder="例：田中こうたくん 発熱のため欠席"></textarea></div>
+              <div class="field-group"><label class="field-label">保護者との連絡</label><textarea id="input-guardian" placeholder="例：山田さんより、来週の遠足について確認あり。"></textarea></div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header">🔄 振り返り</div>
+            <div class="section-body"><textarea id="input-reflection" class="tall" placeholder="今日の保育を振り返って..."></textarea></div>
+          </div>
+          <div class="section-card">
+            <div class="section-header accent">💛 今日の子どもの様子・つぶやき・エピソード</div>
+            <div class="section-body"><textarea id="input-episode" class="tall" placeholder="印象に残ったエピソードや子どもの言葉、様子など..."></textarea></div>
+          </div>
+          <button class="btn-primary full" onclick="saveEntry()">💾 保存する</button>
+          <div style="height:32px"></div>
+        </div>
+
+        <!-- ENTRIES VIEW -->
+        <div id="view-entries" class="view">
+          <div class="filter-bar">
+            <div class="field-group"><label class="field-label">月で絞り込み</label><input type="month" id="filter-month" onchange="renderEntries()"></div>
+            <div class="field-group"><label class="field-label">日付</label><input type="date" id="filter-date" onchange="renderEntries()"></div>
+            <div id="filter-confirm-wrap" class="field-group" style="display:none;min-width:130px;">
+              <label class="field-label">確認状況</label>
+              <select id="filter-confirm" onchange="renderEntries()">
+                <option value="">全て</option>
+                <option value="unconfirmed">未確認のみ</option>
+                <option value="confirmed">確認済みのみ</option>
+              </select>
+            </div>
+            <button class="btn-secondary" onclick="clearFilters()">リセット</button>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button class="btn-secondary btn-sm" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="width:auto;margin:0;cursor:pointer;">
+            <label for="select-all" style="font-size:13px;color:var(--text-light);cursor:pointer;">全て選択</label>
+            <span id="selected-count" style="font-size:12px;color:var(--accent);margin-left:8px;"></span>
+          </div>
+          <div id="entries-container" class="entry-grid"></div>
+        </div>
+
+        <!-- USERS VIEW (admin only) -->
+        <div id="view-users" class="view">
+          <div class="section-card">
+            <div class="section-header">👥 ユーザー一覧・PIN管理</div>
+            <div class="section-body">
+              <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">ユーザーの追加・PIN変更・削除ができます。初期PINは <strong>1234</strong> です。各自が変更するよう促してください。</p>
+              <div id="users-table-wrap"></div>
+              <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+                <div style="font-size:13px;font-weight:600;color:var(--sage-dark);margin-bottom:10px;">新しいユーザーを追加</div>
+                <div class="field-row">
+                  <div class="field-group"><label class="field-label">氏名</label><input type="text" id="new-user-name" placeholder="例：佐藤先生"></div>
+                  <div class="field-group"><label class="field-label">役職</label>
+                    <select id="new-user-role">
+                      <option value="staff">職員</option>
+                      <option value="vice_principal">副園長</option>
+                      <option value="principal">園長</option>
+                    </select>
+                  </div>
+                  <div class="field-group"><label class="field-label">初期PIN（4桁）</label><input type="text" id="new-user-pin" placeholder="1234" maxlength="4"></div>
+                </div>
+                <button class="btn-primary" onclick="addUser()">ユーザーを追加</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div id="view-settings" class="view">
+          <div class="section-card">
+            <div class="section-header">🔑 自分のPINを変更</div>
+            <div class="section-body">
+              <div class="field-row">
+                <div class="field-group"><label class="field-label">現在のPIN</label><input type="password" id="pin-current" maxlength="4" placeholder="現在の4桁PIN"></div>
+                <div class="field-group"><label class="field-label">新しいPIN（4桁）</label><input type="password" id="pin-new" maxlength="4" placeholder="新しい4桁PIN"></div>
+                <div class="field-group"><label class="field-label">確認</label><input type="password" id="pin-confirm" maxlength="4" placeholder="もう一度入力"></div>
+              </div>
+              <button class="btn-primary" onclick="changePin()">PINを変更</button>
+            </div>
+          </div>
+          <div class="section-card" id="staff-management-card">
+            <div class="section-header">🗂 バックアップ・データ管理</div>
+            <div class="section-body">
+              <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">全データをJSONとしてエクスポートできます。</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn-secondary" onclick="exportJSON()">📥 JSONエクスポート</button>
+                <button class="btn-secondary" onclick="document.getElementById('import-file').click()">📤 JSONインポート</button>
+                <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importJSON(event)">
+              </div>
+              <div id="data-stats" style="margin-top:14px;font-size:13px;color:var(--sage-dark);"></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main-area -->
+  </div><!-- /app-shell -->
+</div><!-- /app -->
+
+<div id="print-area"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ==================================================
+// STORAGE KEYS
+// ==================================================
+const K_ENTRIES='hoiku-entries-v4';
+const K_USERS='hoiku-users-v4';
+
+// ==================================================
+// STATE
+// ==================================================
+let entries=[];
+let users=[];
+let currentUser=null; // logged-in user
+let cvFilter={year:null,staff:null};
+
+const ROLE_LABEL={'principal':'園長','vice_principal':'副園長','staff':'職員'};
+const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
+const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
+
+function isAdmin(u){return u&&(u.role==='principal'||u.role==='vice_principal');}
+function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
+
+// ==================================================
+// INIT
+// ==================================================
+function init(){
+  loadStorage();
+  if(users.length===0) initDefaultUsers();
+  renderLoginUsers();
+}
+
+function loadStorage(){
+  try{const s=localStorage.getItem(K_ENTRIES);if(s)entries=JSON.parse(s);}catch(_){}
+  try{const s=localStorage.getItem(K_USERS);if(s)users=JSON.parse(s);}catch(_){}
+}
+function saveStorage(){
+  localStorage.setItem(K_ENTRIES,JSON.stringify(entries));
+  localStorage.setItem(K_USERS,JSON.stringify(users));
+}
+
+function initDefaultUsers(){
+  users=[
+    {id:'u1',name:'園長',role:'principal',pin:'1234'},
+    {id:'u2',name:'副園長',role:'vice_principal',pin:'1234'},
+    {id:'u3',name:'田中先生',role:'staff',pin:'1234'},
+    {id:'u4',name:'鈴木先生',role:'staff',pin:'1234'},
+    {id:'u5',name:'山田先生',role:'staff',pin:'1234'},
+  ];
+  saveStorage();
+}
+
+// ==================================================
+// LOGIN
+// ==================================================
+let loginSelectedUser=null;
+let pinBuffer='';
+
+function renderLoginUsers(){
+  const grid=document.getElementById('user-grid-login');
+  grid.innerHTML=users.map(u=>`
+    <div class="user-card" onclick="selectLoginUser('${u.id}')">
+      <div class="user-card-name">${u.name}</div>
+      <div class="user-card-role"><span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span></div>
+    </div>`).join('');
+}
+
+function selectLoginUser(uid){
+  loginSelectedUser=users.find(u=>u.id===uid);
+  if(!loginSelectedUser)return;
+  document.getElementById('login-selected-name').textContent=loginSelectedUser.name;
+  document.getElementById('login-selected-role').innerHTML=`<span class="role-badge role-${loginSelectedUser.role}">${ROLE_LABEL[loginSelectedUser.role]}</span>`;
+  pinBuffer='';
+  updatePinDisplay();
+  document.getElementById('login-error').textContent='';
+  document.getElementById('login-step1').classList.remove('active');
+  document.getElementById('login-step2').classList.add('active');
+}
+
+function backToUsers(){
+  loginSelectedUser=null;pinBuffer='';
+  document.getElementById('login-step1').classList.add('active');
+  document.getElementById('login-step2').classList.remove('active');
+}
+
+function pinInput(d){
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=d;
+  updatePinDisplay();
+  if(pinBuffer.length===4) setTimeout(checkPin,200);
+}
+function pinBack(){pinBuffer=pinBuffer.slice(0,-1);updatePinDisplay();}
+function pinClear(){pinBuffer='';updatePinDisplay();}
+function updatePinDisplay(){
+  for(let i=0;i<4;i++){
+    document.getElementById('pd'+i).classList.toggle('filled',i<pinBuffer.length);
+  }
+}
+
+function checkPin(){
+  if(pinBuffer===loginSelectedUser.pin){
+    currentUser=loginSelectedUser;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    onLogin();
+  } else {
+    document.getElementById('login-error').textContent='PINが違います。もう一度お試しください。';
+    pinBuffer='';updatePinDisplay();
+  }
+}
+
+function logout(){
+  currentUser=null;pinBuffer='';loginSelectedUser=null;
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-step1').classList.add('active');
+  document.getElementById('login-step2').classList.remove('active');
+  renderLoginUsers();
+}
+
+// ==================================================
+// POST-LOGIN SETUP
+// ==================================================
+function onLogin(){
+  const u=currentUser;
+  document.getElementById('header-user-name').innerHTML=`${u.name} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
+
+  // show/hide admin features
+  document.getElementById('admin-divider').style.display=isAdmin(u)?'block':'none';
+  document.getElementById('admin-sidebar').style.display=isAdmin(u)?'block':'none';
+  document.getElementById('sidebar-input-btn').style.display=isAdmin(u)?'none':'block';
+
+  // staff can't see input nav on sidebar if admin (they use the button directly)
+  // Actually let's keep input visible for all
+
+  document.getElementById('sidebar-input-btn').style.display='block';
+
+  // auto-fill staff name
+  document.getElementById('input-staff-name').value=u.name;
+
+  setDefaultDate();
+  renderYearTree();
+
+  // Admins default to entries view
+  if(isAdmin(u)){
+    showView('entries');
+    cvFilter={year:null,staff:null};
+  } else {
+    showView('input');
+  }
+}
+
+// ==================================================
+// FISCAL YEAR
+// ==================================================
+function getFY(dateStr){
+  if(!dateStr)return null;
+  const d=new Date(dateStr),y=d.getFullYear(),m=d.getMonth()+1;
+  return m>=4?y:y-1;
+}
+function getYears(){return[...new Set(entries.map(e=>e.fiscalYear))].filter(Boolean).sort((a,b)=>b-a);}
+function getStaffForYear(year){
+  if(!isAdmin(currentUser)){return[currentUser.name];}
+  return[...new Set(entries.filter(e=>e.fiscalYear===year).map(e=>e.staff))].sort();
+}
+function countE(year,staff){
+  return entries.filter(e=>e.fiscalYear===year&&(!staff||e.staff===staff)&&canViewEntry(currentUser,e)).length;
+}
+
+// ==================================================
+// SIDEBAR TREE
+// ==================================================
+function renderYearTree(){
+  const tree=document.getElementById('year-tree');
+  const years=getYears();
+  if(!years.length){tree.innerHTML='<div style="padding:8px 16px;font-size:12px;opacity:0.4;color:#c8d8ca;">記録なし</div>';return;}
+  tree.innerHTML=years.map(year=>`
+    <div class="sidebar-year" id="yb-${year}">
+      <button class="year-btn ${cvFilter.year===year?'open':''}" onclick="toggleYear(${year})">
+        <span class="year-icon">▶</span> 📁 ${year}年度
+        <span class="sbadge">${countE(year,null)}</span>
+      </button>
+      <div class="staff-list" id="sl-${year}" style="display:${cvFilter.year===year?'block':'none'}">
+        <button class="staff-btn ${cvFilter.year===year&&!cvFilter.staff?'active':''}" onclick="selectFilter(${year},null)">
+          📂 全員 <span class="sbadge">${countE(year,null)}</span>
+        </button>
+        ${getStaffForYear(year).map(s=>`
+          <button class="staff-btn ${cvFilter.year===year&&cvFilter.staff===s?'active':''}" onclick="selectFilter(${year},'${s}')">
+            👤 ${s} <span class="sbadge">${countE(year,s)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleYear(year){
+  const sl=document.getElementById('sl-'+year);
+  const btn=sl.previousElementSibling;
+  const open=sl.style.display!=='none';
+  sl.style.display=open?'none':'block';
+  btn.classList.toggle('open',!open);
+}
+
+function selectFilter(year,staff){
+  cvFilter={year,staff};
+  renderYearTree();
+  showView('entries');
+}
+
+// ==================================================
+// VIEW SWITCHING
+// ==================================================
+function showView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.snav-btn').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(document.getElementById('nav-'+v)) document.getElementById('nav-'+v).classList.add('active');
+
+  const titles={
+    input:['日誌入力','毎日の記録を入力'],
+    entries:[
+      cvFilter.staff?cvFilter.staff+' の記録':(cvFilter.year?cvFilter.year+'年度 全職員':'全記録'),
+      cvFilter.year?cvFilter.year+'年度':''
+    ],
+    users:['ユーザー管理','PIN・権限の設定'],
+    settings:['設定','PINの変更・データ管理']
+  };
+  const t=titles[v]||['',''];
+  document.getElementById('topbar-title').textContent=t[0];
+  document.getElementById('topbar-sub').textContent=t[1];
+
+  if(v==='entries'){
+    document.getElementById('filter-confirm-wrap').style.display=isAdmin(currentUser)?'block':'none';
+    renderEntries();
+  }
+  if(v==='users') renderUsersTable();
+  if(v==='settings') renderDataStats();
+  if(window.innerWidth<768) document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+// ==================================================
+// DATE HELPERS
+// ==================================================
+function setDefaultDate(){
+  const d=new Date();
+  document.getElementById('input-date').value=d.toISOString().split('T')[0];
+  updateWeekday();
+}
+function updateWeekday(){
+  const d=document.getElementById('input-date').value;
+  if(!d)return;
+  const days=['日','月','火','水','木','金','土'];
+  document.getElementById('input-weekday').value=days[new Date(d).getDay()]+'曜日';
+}
+function fmtDate(dateStr){
+  const d=new Date(dateStr),days=['日','月','火','水','木','金','土'];
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+function fmtDt(isoStr){
+  const d=new Date(isoStr);
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+function getWeek(dateStr){
+  const d=new Date(dateStr),fy=getFY(dateStr);
+  return Math.ceil((d-new Date(fy,3,1))/(7*86400000))+1;
+}
+
+// ==================================================
+// SAVE ENTRY
+// ==================================================
+function saveEntry(){
+  const date=document.getElementById('input-date').value;
+  if(!date){showToast('⚠️ 日付は必須です');return;}
+  const staff=currentUser.name;
+  const entry={
+    id:Date.now(),staff,date,
+    weekday:document.getElementById('input-weekday').value,
+    weather:document.getElementById('input-weather').value,
+    fiscalYear:getFY(date),
+    weeklyGoal:document.getElementById('input-weekly-goal').value,
+    dailyGoal:document.getElementById('input-daily-goal').value,
+    activity:document.getElementById('input-activity').value,
+    support:document.getElementById('input-support').value,
+    mainActivity:document.getElementById('input-main-activity').value,
+    absence:document.getElementById('input-absence').value,
+    guardian:document.getElementById('input-guardian').value,
+    reflection:document.getElementById('input-reflection').value,
+    episode:document.getElementById('input-episode').value,
+    confirmations:[],
+    comments:[],
+    savedAt:new Date().toISOString()
+  };
+  // preserve existing confirmations/comments if overwriting
+  const existing=entries.find(e=>e.staff===staff&&e.date===date);
+  if(existing){entry.confirmations=existing.confirmations||[];entry.comments=existing.comments||[];}
+  entries=entries.filter(e=>!(e.staff===staff&&e.date===date));
+  entries.push(entry);
+  entries.sort((a,b)=>b.date.localeCompare(a.date));
+  saveStorage();
+  renderYearTree();
+  showToast('✅ 保存しました！');
+  clearInputForm();
+}
+function clearInputForm(){
+  ['input-weekly-goal','input-daily-goal','input-activity','input-support',
+   'input-main-activity','input-absence','input-guardian','input-reflection','input-episode']
+    .forEach(id=>document.getElementById(id).value='');
+}
+
+// ==================================================
+// ENTRIES LIST
+// ==================================================
+function getFiltered(){
+  let list=entries.filter(e=>canViewEntry(currentUser,e));
+  if(cvFilter.year) list=list.filter(e=>e.fiscalYear===cvFilter.year);
+  if(cvFilter.staff) list=list.filter(e=>e.staff===cvFilter.staff);
+  const fm=document.getElementById('filter-month')?.value;
+  if(fm) list=list.filter(e=>e.date.startsWith(fm));
+  const fd=document.getElementById('filter-date')?.value;
+  if(fd) list=list.filter(e=>e.date===fd);
+  const fc=document.getElementById('filter-confirm')?.value;
+  if(fc==='unconfirmed') list=list.filter(e=>!(e.confirmations&&e.confirmations.length));
+  if(fc==='confirmed') list=list.filter(e=>e.confirmations&&e.confirmations.length>0);
+  return list;
+}
+
+function clearFilters(){
+  ['filter-month','filter-date','filter-confirm'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderEntries();
+}
+
+function renderEntries(){
+  const filtered=getFiltered();
+  const c=document.getElementById('entries-container');
+  updateSelUI();
+  if(!filtered.length){
+    c.innerHTML=`<div class="no-data"><div class="no-data-icon">📁</div><div class="no-data-text">記録が見つかりません。<br>${isAdmin(currentUser)?'左のメニューから年度・職員を選択してください。':'日誌入力タブから記録を追加してください。'}</div></div>`;
+    return;
+  }
+  c.innerHTML=filtered.map(e=>renderEntryCard(e)).join('');
+}
+
+function renderEntryCard(e){
+  const wx=WX[e.weather]||'';
+  const confirmed=e.confirmations&&e.confirmations.length>0;
+  const confirmHTML=buildConfirmSection(e);
+  const commentsHTML=buildCommentsSection(e);
+  const fv=(label,val,full=false)=>`
+    <div class="report-field ${full?'full':''}">
+      <div class="rfl">${label}</div>
+      <div class="rfv ${val?'':'empty'}">${val?esc(val):'（記録なし）'}</div>
+    </div>`;
+  const adminActions=isAdmin(currentUser)?`
+    <button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button>
+    <button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`:'';
+  return `
+  <div class="entry-card ${confirmed?'':'unconfirmed'}" id="card-${e.id}">
+    <div class="entry-card-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" class="echeck" data-id="${e.id}" onchange="updateSelUI()" style="width:auto;margin:0;cursor:pointer;">
+        <div class="entry-meta">
+          <span class="entry-date">${fmtDate(e.date)}</span>
+          <span class="badge badge-sage">${e.staff}</span>
+          <span class="badge badge-year">${e.fiscalYear}年度</span>
+          <span>${wx} ${e.weather}</span>
+          ${confirmed?`<span class="badge badge-confirm">✓ 確認済み</span>`:`<span class="badge badge-pending">未確認</span>`}
+        </div>
+      </div>
+      <div class="entry-actions">
+        ${isAdmin(currentUser)?buildConfirmBtn(e):''}
+        ${adminActions}
+      </div>
+    </div>
+    <div class="entry-body">
+      ${e.weeklyGoal?`<div class="weekly-goal"><div class="wg-label">🎯 週のねらい</div>${esc(e.weeklyGoal)}</div>`:''}
+      <div class="report-grid">
+        ${fv('今日のねらい',e.dailyGoal)}
+        ${fv('主な活動・設定保育',e.mainActivity)}
+        ${fv('活動内容',e.activity,true)}
+        ${fv('保育者の援助・配慮・気づき',e.support,true)}
+        ${fv('欠席・早退・遅刻（名前・理由）',e.absence)}
+        ${fv('保護者との連絡',e.guardian)}
+        ${fv('振り返り',e.reflection,true)}
+      </div>
+      ${e.episode?`<div class="entry-episode"><div class="ep-label">💛 今日の子どもの様子・つぶやき・エピソード</div><div class="ep-text">${esc(e.episode)}</div></div>`:''}
+      ${confirmHTML}
+      ${commentsHTML}
+    </div>
+  </div>`;
+}
+
+// ==================================================
+// CONFIRMATION
+// ==================================================
+function buildConfirmBtn(e){
+  const myConf=e.confirmations&&e.confirmations.find(c=>c.userId===currentUser.id);
+  if(myConf) return `<button class="btn-confirmed">✓ ${ROLE_LABEL[currentUser.role]}確認済み</button>`;
+  return `<button class="btn-confirm" onclick="confirmEntry(${e.id})">✔ 確認する</button>`;
+}
+
+function buildConfirmSection(e){
+  const confs=e.confirmations||[];
+  if(!confs.length&&!isAdmin(currentUser)) return '';
+  return `
+  <div class="confirm-section">
+    <div class="confirm-title">✅ 確認状況</div>
+    <div class="confirm-list">
+      ${confs.length?confs.map(c=>`
+        <div class="confirm-item">
+          <span>${c.userName}</span>
+          <span class="confirm-item-time">${fmtDt(c.confirmedAt)}</span>
+        </div>`).join(''):'<span style="font-size:12px;color:var(--confirm);opacity:0.6;">まだ確認されていません</span>'}
+    </div>
+  </div>`;
+}
+
+function confirmEntry(eid){
+  const e=entries.find(x=>x.id===eid);
+  if(!e||!isAdmin(currentUser))return;
+  if(!e.confirmations) e.confirmations=[];
+  if(e.confirmations.find(c=>c.userId===currentUser.id)){showToast('既に確認済みです');return;}
+  e.confirmations.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()});
+  saveStorage();
+  renderEntries();
+  showToast('✅ 確認しました');
+}
+
+// ==================================================
+// COMMENTS
+// ==================================================
+function buildCommentsSection(e){
+  const cmts=e.comments||[];
+  const cmtHTML=cmts.map(c=>{
+    const isOwn=c.userId===currentUser.id;
+    const isAdm=c.role==='principal'||c.role==='vice_principal';
+    return `
+    <div class="comment-item">
+      <div class="comment-avatar ${isAdm?'admin':''}">${c.userName.charAt(0)}</div>
+      <div class="comment-bubble ${isOwn?'own':''}">
+        <div class="comment-meta"><strong>${c.userName}</strong> <span class="role-badge role-${c.role}" style="font-size:10px;">${ROLE_LABEL[c.role]}</span>  ${fmtDt(c.createdAt)}</div>
+        <div class="comment-text">${esc(c.text)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="comment-section">
+    <div class="comment-title">💬 コメント（${cmts.length}件）</div>
+    <div class="comment-list" id="cmts-${e.id}">${cmtHTML||'<div style="font-size:12px;color:var(--border);font-style:italic;">コメントはまだありません</div>'}</div>
+    <div class="comment-input-area">
+      <textarea id="cmt-input-${e.id}" style="min-height:52px;font-size:13px;" placeholder="コメントを入力..."></textarea>
+      <button class="btn-primary btn-sm" style="align-self:flex-end;" onclick="addComment(${e.id})">送信</button>
+    </div>
+  </div>`;
+}
+
+function addComment(eid){
+  const inp=document.getElementById('cmt-input-'+eid);
+  const text=inp.value.trim();
+  if(!text){showToast('コメントを入力してください');return;}
+  const e=entries.find(x=>x.id===eid);
+  if(!e)return;
+  if(!e.comments) e.comments=[];
+  e.comments.push({id:Date.now(),userId:currentUser.id,userName:currentUser.name,role:currentUser.role,text,createdAt:new Date().toISOString()});
+  saveStorage();
+  inp.value='';
+  // re-render just this card
+  const card=document.getElementById('card-'+eid);
+  if(card) card.outerHTML=renderEntryCard(e);
+  showToast('💬 コメントを送信しました');
+}
+
+// ==================================================
+// DELETE ENTRY
+// ==================================================
+function deleteEntry(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  entries=entries.filter(e=>e.id!==id);
+  saveStorage();
+  renderYearTree();
+  renderEntries();
+  showToast('削除しました');
+}
+
+// ==================================================
+// CHECKBOX / SELECT
+// ==================================================
+function toggleSelectAll(){
+  const all=document.getElementById('select-all').checked;
+  document.querySelectorAll('.echeck').forEach(c=>c.checked=all);
+  updateSelUI();
+}
+function updateSelUI(){
+  const checks=document.querySelectorAll('.echeck');
+  const checked=document.querySelectorAll('.echeck:checked');
+  const all=document.getElementById('select-all');
+  if(all) all.checked=checks.length>0&&checked.length===checks.length;
+  const cnt=document.getElementById('selected-count');
+  if(cnt) cnt.textContent=checked.length>0?`${checked.length}件選択中`:'';
+  const pb=document.getElementById('print-btn');
+  if(pb){pb.textContent=checked.length>0?`🖨 ${checked.length}件を印刷`:'';pb.style.display=checked.length>0?'block':'none';}
+}
+
+// ==================================================
+// USERS MANAGEMENT
+// ==================================================
+function renderUsersTable(){
+  const wrap=document.getElementById('users-table-wrap');
+  const roleOpts=(cur)=>['principal','vice_principal','staff'].map(r=>
+    `<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
+  wrap.innerHTML=`
+  <table class="user-table">
+    <thead><tr><th>氏名</th><th>役職（変更可）</th><th>PIN</th><th>操作</th></tr></thead>
+    <tbody>
+      ${users.map(u=>`
+      <tr id="urow-${u.id}">
+        <td style="font-weight:500;">${u.name}${u.id===currentUser.id?'<span style="font-size:10px;color:var(--warm-gray);margin-left:4px;">（自分）</span>':''}</td>
+        <td>
+          ${u.id===currentUser.id
+            ? `<span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span><span style="font-size:11px;color:var(--warm-gray);margin-left:6px;">自分の役職は変更不可</span>`
+            : `<div style="display:flex;gap:6px;align-items:center;">
+                <select id="role-sel-${u.id}" style="padding:5px 28px 5px 8px;font-size:12px;border-radius:6px;min-width:100px;">${roleOpts(u.role)}</select>
+                <button class="btn-secondary btn-sm" onclick="changeRole('${u.id}')">変更</button>
+               </div>`
+          }
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="letter-spacing:0.1em;color:var(--warm-gray);">••••</span>
+            <button class="btn-secondary btn-sm" onclick="resetPin('${u.id}')">PIN初期化</button>
+          </div>
+        </td>
+        <td>
+          ${u.id!==currentUser.id?`<button class="btn-danger btn-sm" onclick="deleteUser('${u.id}')">削除</button>`:'―'}
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function changeRole(uid){
+  const u=users.find(x=>x.id===uid);
+  if(!u)return;
+  const sel=document.getElementById('role-sel-'+uid);
+  const newRole=sel.value;
+  if(newRole===u.role){showToast('役職は変わっていません');return;}
+  if(!confirm(`「${u.name}」の役職を「${ROLE_LABEL[u.role]}」→「${ROLE_LABEL[newRole]}」に変更しますか？`))return;
+  u.role=newRole;
+  saveStorage();
+  renderUsersTable();
+  renderLoginUsers();
+  showToast(`✅ ${u.name} の役職を「${ROLE_LABEL[newRole]}」に変更しました`);
+}
+
+function addUser(){
+  const name=document.getElementById('new-user-name').value.trim();
+  const role=document.getElementById('new-user-role').value;
+  const pin=document.getElementById('new-user-pin').value.trim()||'1234';
+  if(!name){showToast('氏名を入力してください');return;}
+  if(users.find(u=>u.name===name)){showToast('同じ名前が既に登録されています');return;}
+  if(!/^\d{4}$/.test(pin)){showToast('PINは4桁の数字にしてください');return;}
+  users.push({id:'u'+Date.now(),name,role,pin});
+  saveStorage();
+  renderUsersTable();
+  renderLoginUsers();
+  document.getElementById('new-user-name').value='';
+  document.getElementById('new-user-pin').value='';
+  showToast(name+' を追加しました');
+}
+
+function deleteUser(uid){
+  const u=users.find(x=>x.id===uid);
+  if(!u)return;
+  if(!confirm('「'+u.name+'」を削除しますか？（記録データは保持されます）'))return;
+  users=users.filter(x=>x.id!==uid);
+  saveStorage();
+  renderUsersTable();
+  renderLoginUsers();
+}
+
+function resetPin(uid){
+  const u=users.find(x=>x.id===uid);
+  if(!u)return;
+  if(!confirm(u.name+'のPINを「1234」に初期化しますか？'))return;
+  u.pin='1234';
+  saveStorage();
+  showToast(u.name+' のPINを初期化しました（1234）');
+}
+
+// ==================================================
+// CHANGE OWN PIN
+// ==================================================
+function changePin(){
+  const cur=document.getElementById('pin-current').value;
+  const nw=document.getElementById('pin-new').value;
+  const conf=document.getElementById('pin-confirm').value;
+  if(cur!==currentUser.pin){showToast('⚠️ 現在のPINが違います');return;}
+  if(!/^\d{4}$/.test(nw)){showToast('⚠️ 新しいPINは4桁の数字にしてください');return;}
+  if(nw!==conf){showToast('⚠️ 確認用PINが一致しません');return;}
+  const u=users.find(x=>x.id===currentUser.id);
+  if(u){u.pin=nw;currentUser.pin=nw;}
+  saveStorage();
+  ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
+  showToast('✅ PINを変更しました');
+}
+
+function renderDataStats(){
+  const el=document.getElementById('data-stats');
+  if(!el)return;
+  const yrs=getYears();
+  if(!yrs.length){el.textContent='記録はまだありません。';return;}
+  el.innerHTML='合計 <strong>'+entries.length+'件</strong> の記録 ／ '+yrs.map(y=>y+'年度：'+countE(y,null)+'件').join('、');
+}
+
+// ==================================================
+// PRINT
+// ==================================================
+function buildPrintDay(e){
+  const wx=WX[e.weather]||'';
+  const d=new Date(e.date),days=['日','月','火','水','木','金','土'];
+  return `
+  <div class="print-day">
+    <div class="print-header-row">
+      <span>${d.getMonth()+1}月 第${getWeek(e.date)}週 ／ ${e.staff}</span>
+      <span>${e.fiscalYear}年度</span>
+    </div>
+    <div class="print-weekly">
+      <div class="print-weekly-label">週のねらい</div>
+      <div class="print-weekly-value">${e.weeklyGoal||''}</div>
+    </div>
+    <div class="print-date-row">
+      <div class="print-date-cell">
+        <div class="print-date-label">月日・曜日</div>
+        <div class="print-date-value">${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）</div>
+      </div>
+      <div class="print-date-cell" style="flex:3;">
+        <div class="print-date-label">今日のねらい</div>
+        <div class="print-date-value" style="font-weight:normal;">${e.dailyGoal||''}</div>
+      </div>
+      <div class="print-date-cell">
+        <div class="print-date-label">天気</div>
+        <div class="print-date-value">${wx} ${e.weather||''}</div>
+      </div>
+    </div>
+    <div class="print-body">
+      <div class="print-col-activity">
+        <span class="print-col-label">活動内容</span>
+        <div class="print-col-value">${e.activity||''}</div>
+      </div>
+      <div class="print-col-support">
+        <span class="print-col-label">保育者の援助・配慮・気づき</span>
+        <div class="print-col-value">${e.support||''}</div>
+      </div>
+      <div class="print-col-right">
+        <div class="print-col-right-cell" style="flex:2;"><span class="print-col-label">主な活動・設定保育</span><div class="print-col-value">${e.mainActivity||''}</div></div>
+        <div class="print-col-right-cell" style="flex:1.5;"><span class="print-col-label">欠席・早退・遅刻（名前・理由）</span><div class="print-col-value">${e.absence||''}</div></div>
+        <div class="print-col-right-cell" style="flex:1.5;"><span class="print-col-label">保護者との連絡</span><div class="print-col-value">${e.guardian||''}</div></div>
+        <div class="print-col-right-cell" style="flex:2;"><span class="print-col-label">振り返り</span><div class="print-col-value">${e.reflection||''}</div></div>
+      </div>
+    </div>
+    <div class="print-episode">
+      <span class="print-col-label">今日の子どもの様子、つぶやき・エピソード</span>
+      <div class="print-col-value">${e.episode||''}</div>
+    </div>
+  </div>`;
+}
+
+function doPrint(list){
+  const pages=[];
+  for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
+  document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
+  setTimeout(()=>window.print(),200);
+}
+function printSingle(id){const e=entries.find(x=>x.id===id);if(e)doPrint([e]);}
+function printSelected(){
+  const ids=[...document.querySelectorAll('.echeck:checked')].map(c=>+c.dataset.id);
+  if(!ids.length){showToast('印刷する記録を選択してください');return;}
+  doPrint(entries.filter(e=>ids.includes(e.id)).sort((a,b)=>a.date.localeCompare(b.date)));
+}
+
+// ==================================================
+// EXPORT / IMPORT
+// ==================================================
+function exportJSON(){
+  const data=JSON.stringify({entries,users},null,2);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download='hoiku-backup-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+  showToast('📥 バックアップをダウンロードしました');
+}
+function importJSON(ev){
+  const f=ev.target.files[0];if(!f)return;
+  new FileReader().onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(d.entries) entries=d.entries;
+      if(d.users) users=d.users;
+      saveStorage();
+      renderYearTree();
+      renderLoginUsers();
+      showToast('✅ インポートしました（'+entries.length+'件）');
+    }catch(_){showToast('⚠️ 読み込みに失敗しました');}
+  };
+  const r=new FileReader();
+  r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.entries)entries=d.entries;if(d.users)users=d.users;saveStorage();renderYearTree();renderLoginUsers();showToast('✅ インポートしました（'+entries.length+'件）');}catch(_){showToast('⚠️ 読み込みに失敗しました');}};
+  r.readAsText(f);ev.target.value='';
+}
+
+// ==================================================
+// UTIL
+// ==================================================
+function esc(s){if(!s)return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+document.addEventListener('click',e=>{
+  const sb=document.getElementById('sidebar');
+  if(window.innerWidth<768&&sb.classList.contains('open')&&!sb.contains(e.target)&&!e.target.classList.contains('menu-btn'))
+    sb.classList.remove('open');
+});
+
+init();
+</script>
+</body>
+</html>
