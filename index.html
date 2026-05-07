@@ -173,13 +173,21 @@ body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--
 }
 .avatar-principal{background:linear-gradient(135deg,var(--sun-light),#FFF3B0);color:var(--sun-dark);border:2px solid var(--sun);}
 .avatar-vice{background:linear-gradient(135deg,#f0e8ff,#e4d4ff);color:#6B3FA0;border:2px solid #C9A0DC;}
-.avatar-staff{background:linear-gradient(135deg,var(--green-light),#d0ecd2);color:var(--green-dark);border:2px solid #A8D5AA;}
+.avatar-staff,.avatar-senior,.avatar-middle,.avatar-junior{background:linear-gradient(135deg,var(--green-light),#d0ecd2);color:var(--green-dark);border:2px solid #A8D5AA;}
+.avatar-head_teacher{background:linear-gradient(135deg,#e0f4f0,#c0e8e0);color:#1a6e5a;border:2px solid #80cdc0;}
+.avatar-asst_head{background:linear-gradient(135deg,#e8f8f4,#c8eee8);color:#2a8a72;border:2px solid #a0ddd0;}
+.avatar-sesame{background:linear-gradient(135deg,#ffe8f0,#ffd0e4);color:#a0386a;border:2px solid #f0a8c0;}
+.avatar-free{background:linear-gradient(135deg,#f0f0f0,#e0e0e0);color:#606060;border:2px solid #c0c0c0;}
 .user-list-name{font-size:15px;font-weight:700;color:var(--text);flex:1;}
 .user-list-no-result{padding:24px;text-align:center;font-size:13px;color:var(--warm-gray);}
 .role-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
 .role-principal{background:var(--sun-light);color:var(--sun-dark);border:1px solid var(--sun);}
 .role-vice{background:#f0e8ff;color:#6B3FA0;border:1px solid #C9A0DC;}
-.role-staff{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
+.role-staff,.role-senior,.role-middle,.role-junior{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
+.role-head_teacher{background:#e0f4f0;color:#1a6e5a;border:1px solid #80cdc0;}
+.role-asst_head{background:#e8f8f4;color:#2a8a72;border:1px solid #a0ddd0;}
+.role-sesame{background:#ffe8f0;color:#a0386a;border:1px solid #f0a8c0;}
+.role-free{background:#f0f0f0;color:#606060;border:1px solid #c0c0c0;}
 .pin-user-display{
   display:flex;align-items:center;gap:12px;
   padding:12px 14px;background:var(--cream);border-radius:14px;
@@ -223,7 +231,9 @@ body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--
 
 /* ====== APP ====== */
 #app{display:none;flex-direction:column;height:100vh;overflow:hidden;}
-#app.visible{display:flex;}
+/* ログイン後はbody.logged-inで制御 */
+body.logged-in #login-screen{display:none!important;}
+body.logged-in #app{display:flex!important;}
 
 .app-header{
   background:linear-gradient(90deg,var(--green-dark) 0%,var(--sidebar-active) 100%);
@@ -627,11 +637,12 @@ select{
 
 /* ====== MOBILE ====== */
 @media(max-width:768px){
-  #app{height:auto;min-height:100dvh;overflow:visible;}
-  .app-shell{flex-direction:column;overflow:visible;}
+  #app{height:100dvh;overflow:hidden;}
+  body.logged-in #app{height:100dvh;overflow:hidden;flex-direction:column;}
+  .app-shell{flex-direction:column;overflow:hidden;flex:1;}
   .sidebar{display:none!important;}
-  .main-area{overflow:visible;}
-  .content{overflow:visible;padding:12px 12px 84px;}
+  .main-area{overflow:hidden;flex:1;display:flex;flex-direction:column;}
+  .content{overflow-y:auto;padding:12px 12px 84px;flex:1;}
   .bottom-nav{display:block;}
 
   .menu-btn{display:none;}
@@ -862,6 +873,7 @@ select{
     </div>
     </div><!-- /login-body -->
   </div><!-- /login-box -->
+</div><!-- /login-screen -->
 
 <!-- ====== APP ====== -->
 <div id="app">
@@ -1017,7 +1029,13 @@ select{
                   <div class="field-group"><label class="field-label">氏名</label><input type="text" id="new-user-name" placeholder="例：佐藤先生"></div>
                   <div class="field-group"><label class="field-label">役職</label>
                     <select id="new-user-role">
-                      <option value="staff">職員</option>
+                      <option value="senior">年長</option>
+                      <option value="middle">年中</option>
+                      <option value="junior">年少</option>
+                      <option value="sesame">セサミ</option>
+                      <option value="free">フリー</option>
+                      <option value="head_teacher">主任</option>
+                      <option value="asst_head">副主任</option>
                       <option value="vice_principal">副園長</option>
                       <option value="principal">園長</option>
                     </select>
@@ -1051,12 +1069,12 @@ select{
                 <div class="field-group" style="margin-bottom:14px;">
                   <label class="field-label">公開範囲</label>
                   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;" id="notice-range-wrap">
-                    <label class="range-opt" onclick="toggleRange(this,'all')"><span class="range-check active">✓</span> 全職員</label>
-                    <label class="range-opt" onclick="toggleRange(this,'principal')"><span class="range-check">✓</span> 園長</label>
-                    <label class="range-opt" onclick="toggleRange(this,'vice_principal')"><span class="range-check">✓</span> 副園長</label>
-                    <label class="range-opt" onclick="toggleRange(this,'staff')"><span class="range-check">✓</span> 職員</label>
+                    <label class="range-opt selected" onclick="toggleRange(this,'all')"><span class="range-check">✓</span> 全体</label>
+                    <label class="range-opt" onclick="toggleRange(this,'senior')"><span class="range-check">✓</span> 年長</label>
+                    <label class="range-opt" onclick="toggleRange(this,'middle')"><span class="range-check">✓</span> 年中</label>
+                    <label class="range-opt" onclick="toggleRange(this,'junior')"><span class="range-check">✓</span> 年少</label>
                   </div>
-                  <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">「全職員」を選ぶと役職に関わらず全員に表示されます</div>
+                  <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">園長・副園長・主任・副主任・フリーは全区分を閲覧できます</div>
                 </div>
                 <button class="btn-primary" onclick="postNotice()">📢 投稿する</button>
               </div>
@@ -1132,11 +1150,18 @@ let users=[];
 let currentUser=null; // logged-in user
 let cvFilter={year:null,staff:null};
 
-const ROLE_LABEL={'principal':'園長','vice_principal':'副園長','staff':'職員'};
+const ROLE_LABEL={
+  'principal':'園長','vice_principal':'副園長',
+  'head_teacher':'主任','asst_head':'副主任',
+  'senior':'年長','middle':'年中','junior':'年少',
+  'sesame':'セサミ','free':'フリー'
+};
+// お知らせ全区分閲覧可能な役職
+const NOTICE_FULL_ACCESS=['principal','vice_principal','head_teacher','asst_head','free'];
 const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
-function isAdmin(u){return u&&(u.role==='principal'||u.role==='vice_principal');}
+function isAdmin(u){return u&&['principal','vice_principal','head_teacher'].includes(u.role);}
 function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
 
 // ==================================================
@@ -1183,12 +1208,11 @@ function renderLoginUsers(filter=''){
   }
 
   // group by role order
-  const order=['principal','vice_principal','staff'];
+  const order=['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free'];
   const grouped={};
   order.forEach(r=>{grouped[r]=[];});
-  filtered.forEach(u=>{if(grouped[u.role])grouped[u.role].push(u);else grouped['staff'].push(u);});
-
-  const roleNames={'principal':'園長','vice_principal':'副園長','staff':'職員'};
+  filtered.forEach(u=>{if(grouped[u.role])grouped[u.role].push(u);else grouped['free'].push(u);});
+  const roleNames={'principal':'👑 園長','vice_principal':'🌟 副園長','head_teacher':'📋 主任','asst_head':'📌 副主任','senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ','free':'🔄 フリー'};
   let html='';
   order.forEach(role=>{
     const group=grouped[role];
@@ -1250,21 +1274,23 @@ function updatePinDisplay(){
 }
 
 function checkPin(){
-  if(pinBuffer===loginSelectedUser.pin){
-    currentUser=loginSelectedUser;
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').classList.add('visible');
+  if(!loginSelectedUser){ pinBuffer=''; updatePinDisplay(); return; }
+  if(String(pinBuffer)===String(loginSelectedUser.pin)){
+    currentUser = loginSelectedUser;
+    pinBuffer = '';
+    document.querySelector('.login-box')?.classList.remove('pin-mode');
+    document.body.classList.add('logged-in');
     onLogin();
   } else {
     document.getElementById('login-error').textContent='PINが違います。もう一度お試しください。';
-    pinBuffer='';updatePinDisplay();
+    pinBuffer=''; updatePinDisplay();
   }
 }
 
 function logout(){
   currentUser=null;pinBuffer='';loginSelectedUser=null;
-  document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-screen').style.display='flex';
+  document.querySelector('.login-box')?.classList.remove('pin-mode');
+  document.body.classList.remove('logged-in');
   document.getElementById('login-step1').classList.add('active');
   document.getElementById('login-step2').classList.remove('active');
   renderLoginUsers();
@@ -1274,19 +1300,24 @@ function logout(){
 // POST-LOGIN SETUP
 // ==================================================
 function onLogin(){
-  const u=currentUser;
-  document.getElementById('header-user-name').innerHTML=`${u.name} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
-  document.getElementById('admin-divider').style.display=isAdmin(u)?'block':'none';
-  document.getElementById('admin-sidebar').style.display=isAdmin(u)?'block':'none';
-  document.getElementById('sidebar-input-btn').style.display='block';
-  document.getElementById('input-staff-name').value=u.name;
-  setDefaultDate();
-  renderYearTree();
-  setTimeout(checkForUpdate, 3000);
-  renderBottomNav();
-  updateNoticeBadge();
-  if(isAdmin(u)){showView('entries');cvFilter={year:null,staff:null};}
-  else showView('input');
+  try{
+    const u=currentUser;
+    document.getElementById('header-user-name').innerHTML=`${u.name} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
+    document.getElementById('admin-divider').style.display=isAdmin(u)?'block':'none';
+    document.getElementById('admin-sidebar').style.display=isAdmin(u)?'block':'none';
+    document.getElementById('sidebar-input-btn').style.display='block';
+    document.getElementById('input-staff-name').value=u.name;
+    setDefaultDate();
+    renderYearTree();
+    setTimeout(checkForUpdate, 3000);
+    renderBottomNav();
+    updateNoticeBadge();
+    if(isAdmin(u)){showView('entries');cvFilter={year:null,staff:null};}
+    else showView('input');
+  } catch(e){
+    console.error('onLogin error:', e);
+    showToast('⚠️ 読み込みエラー: '+e.message);
+  }
 }
 
 // ==================================================
@@ -1728,7 +1759,7 @@ function updateSelUI(){
 // ==================================================
 function renderUsersTable(){
   const wrap=document.getElementById('users-table-wrap');
-  const roleOpts=(cur)=>['principal','vice_principal','staff'].map(r=>
+  const roleOpts=(cur)=>['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free'].map(r=>
     `<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
   wrap.innerHTML=`
   <table class="user-table">
@@ -1945,7 +1976,7 @@ document.addEventListener('click',e=>{
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260506-002';
+const APP_VERSION = '20260506-003';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
@@ -2006,6 +2037,7 @@ function saveNotices(){localStorage.setItem(K_NOTICES,JSON.stringify(notices));}
 
 function canSeeNotice(u,n){
   if(!n.ranges||n.ranges.includes('all')) return true;
+  if(NOTICE_FULL_ACCESS.includes(u.role)) return true;
   return n.ranges.includes(u.role);
 }
 
@@ -2109,7 +2141,7 @@ function updateNoticeBadge(){
   }
 }
 
-const RANGE_LABEL={'all':'全職員','principal':'園長','vice_principal':'副園長','staff':'職員'};
+const RANGE_LABEL={'all':'全体','senior':'年長','middle':'年中','junior':'年少'};
 
 function buildNoticeCard(n){
   const u=currentUser;
