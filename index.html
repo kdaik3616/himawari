@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+  <!-- Firestore: SDK不要・REST APIで直接通信 -->
 
   <!-- PWA / ホーム画面対応 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1361,11 +1362,74 @@ select{
 </div>
 
 <script>
+
 // ==================================================
 // STORAGE KEYS
 // ==================================================
-const K_ENTRIES='hoiku-entries-v4';
-const K_USERS='hoiku-users-v5';
+// ============================================================
+// Firestore REST API クライアント（SDK不要）
+// ============================================================
+const FB_PROJECT = 'himawari-nisshi';
+const FB_KEY = 'AIzaSyDJKgUjL41QqTpABXKvvT_oLHmylan_Vac';
+const FB_BASE = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
+const COLL_USERS   = 'h_users';
+const COLL_ENTRIES = 'h_entries';
+const COLL_NOTICES = 'h_notices';
+let pollInterval = null;
+
+// Firestore型変換
+function toFSVal(v){
+  if(v===null||v===undefined) return {nullValue:null};
+  if(typeof v==='boolean') return {booleanValue:v};
+  if(typeof v==='number') return Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v};
+  if(typeof v==='string') return {stringValue:v};
+  if(Array.isArray(v)) return {arrayValue:{values:v.length?v.map(toFSVal):[]}};
+  if(typeof v==='object') return {mapValue:{fields:toFSFields(v)}};
+  return {stringValue:String(v)};
+}
+function toFSFields(obj){
+  const f={};
+  for(const[k,v] of Object.entries(obj)) if(v!==undefined) f[k]=toFSVal(v);
+  return f;
+}
+function fromFSVal(v){
+  if(!v) return null;
+  if('nullValue' in v) return null;
+  if('booleanValue' in v) return v.booleanValue;
+  if('integerValue' in v) return parseInt(v.integerValue);
+  if('doubleValue' in v) return v.doubleValue;
+  if('stringValue' in v) return v.stringValue;
+  if('arrayValue' in v) return (v.arrayValue.values||[]).map(fromFSVal);
+  if('mapValue' in v) return fromFSFields(v.mapValue.fields||{});
+  return null;
+}
+function fromFSFields(fields){ const o={}; for(const[k,v] of Object.entries(fields)) o[k]=fromFSVal(v); return o; }
+function fromFSDoc(doc){ return doc.fields?fromFSFields(doc.fields):{}; }
+
+async function fsGetAll(coll){
+  try{
+    const r=await fetch(`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=500`);
+    const d=await r.json();
+    return (d.documents||[]).map(fromFSDoc);
+  }catch(e){ console.warn('fsGetAll error:',e); return []; }
+}
+async function fsSet(coll,docId,data){
+  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{
+    method:'PATCH',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fields:toFSFields(data)})
+  });
+}
+async function fsDelete(coll,docId){
+  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{method:'DELETE'});
+}
+async function fsUpdateField(coll,docId,fieldName,value){
+  // フィールド単体更新（updateMask使用）
+  const mask=`updateMask.fieldPaths=${fieldName}`;
+  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}&${mask}`,{
+    method:'PATCH',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fields:{[fieldName]:toFSVal(value)}})
+  });
+}
 
 // ==================================================
 // STATE
@@ -1392,28 +1456,27 @@ function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
 // ==================================================
 // INIT
 // ==================================================
-function init(){
-  loadStorage();
-  loadNotices();
-  if(users.length===0) initDefaultUsers();
+async function init(){
+  try{
+    users=await fsGetAll(COLL_USERS);
+    if(!users.length) await initDefaultUsersDb();
+  }catch(e){
+    console.error('init error:',e);
+    users=[{id:'u1',name:'園長',role:'principal',pin:'1234'}];
+  }
   renderLoginUsers();
+  setDefaultDate();
 }
 
-function loadStorage(){
-  try{const s=localStorage.getItem(K_ENTRIES);if(s)entries=JSON.parse(s);}catch(_){}
-  try{const s=localStorage.getItem(K_USERS);if(s)users=JSON.parse(s);}catch(_){}
-}
-function saveStorage(){
-  localStorage.setItem(K_ENTRIES,JSON.stringify(entries));
-  localStorage.setItem(K_USERS,JSON.stringify(users));
-}
+// storage: use Firestore
+function saveStorage(){} // no-op: Firestore handles saves
 
-function initDefaultUsers(){
-  users=[
-    {id:'u1',name:'園長',role:'principal',pin:'1234'},
-  ];
-  saveStorage();
+async function initDefaultUsersDb(){
+  const u={id:'u1',name:'園長',role:'principal',pin:'1234'};
+  await fsSet(COLL_USERS,'u1',u);
+  users=[u];
 }
+function initDefaultUsers(){ initDefaultUsersDb(); }
 
 // ==================================================
 // LOGIN
@@ -1517,6 +1580,7 @@ function logout(){
   document.querySelector('.login-box')?.classList.remove('pin-mode');
   document.body.classList.remove('logged-in');
   document.body.classList.remove('admin-user');
+  stopListeners();
   document.getElementById('login-step1').classList.add('active');
   document.getElementById('login-step2').classList.remove('active');
   renderLoginUsers();
@@ -1765,12 +1829,14 @@ function getWeek(dateStr){
 // ==================================================
 // SAVE ENTRY
 // ==================================================
-function saveEntry(){
+async function saveEntry(){
   const date=document.getElementById('input-date').value;
   if(!date){showToast('⚠️ 日付は必須です');return;}
   const staff=currentUser.name;
+  const existing=entries.find(e=>e.staff===staff&&e.date===date);
+  const docId=String(existing?.id||Date.now());
   const entry={
-    id:Date.now(),staff,date,
+    id:Number(docId),staff,date,
     weekday:document.getElementById('input-weekday').value,
     weather:document.getElementById('input-weather').value,
     fiscalYear:getFY(date),
@@ -1783,20 +1849,15 @@ function saveEntry(){
     guardian:document.getElementById('input-guardian').value,
     reflection:document.getElementById('input-reflection').value,
     episode:document.getElementById('input-episode').value,
-    confirmations:[],
-    comments:[],
+    confirmations:existing?.confirmations||[],
+    comments:existing?.comments||[],
     savedAt:new Date().toISOString()
   };
-  // preserve existing confirmations/comments if overwriting
-  const existing=entries.find(e=>e.staff===staff&&e.date===date);
-  if(existing){entry.confirmations=existing.confirmations||[];entry.comments=existing.comments||[];}
-  entries=entries.filter(e=>!(e.staff===staff&&e.date===date));
-  entries.push(entry);
-  entries.sort((a,b)=>b.date.localeCompare(a.date));
-  saveStorage();
-  renderYearTree();
-  showToast('✅ 保存しました！');
-  clearInputForm();
+  try{
+    await fsSet(COLL_ENTRIES,docId,entry);
+    showToast('✅ 保存しました！');
+    clearInputForm();
+  }catch(e){showToast('⚠️ 保存エラー: '+e.message);}
 }
 function clearInputForm(){
   ['input-weekly-goal','input-daily-goal','input-activity','input-support',
@@ -1925,15 +1986,16 @@ function buildConfirmSection(e){
   </div>`;
 }
 
-function confirmEntry(eid){
+async function confirmEntry(eid){
   const e=entries.find(x=>x.id===eid);
   if(!e||!isAdmin(currentUser))return;
-  if(!e.confirmations) e.confirmations=[];
-  if(e.confirmations.find(c=>c.userId===currentUser.id)){showToast('既に確認済みです');return;}
-  e.confirmations.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()});
-  saveStorage();
-  renderEntries();
-  showToast('✅ 確認しました');
+  if((e.confirmations||[]).find(c=>c.userId===currentUser.id)){showToast('既に確認済みです');return;}
+  const newConf=[...(e.confirmations||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()}];
+  try{
+    await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
+    if(e2) return; // unused var fix
+    showToast('✅ 確認しました');
+  }catch(err){showToast('⚠️ エラー: '+err.message);}
 }
 
 // ==================================================
@@ -1964,32 +2026,29 @@ function buildCommentsSection(e){
   </div>`;
 }
 
-function addComment(eid){
+async function addComment(eid){
   const inp=document.getElementById('cmt-input-'+eid);
   const text=inp.value.trim();
   if(!text){showToast('コメントを入力してください');return;}
   const e=entries.find(x=>x.id===eid);
   if(!e)return;
-  if(!e.comments) e.comments=[];
-  e.comments.push({id:Date.now(),userId:currentUser.id,userName:currentUser.name,role:currentUser.role,text,createdAt:new Date().toISOString()});
-  saveStorage();
+  const newComments=[...(e.comments||[]),{id:Date.now(),userId:currentUser.id,userName:currentUser.name,role:currentUser.role,text,createdAt:new Date().toISOString()}];
   inp.value='';
-  // re-render just this card
-  const card=document.getElementById('card-'+eid);
-  if(card) card.outerHTML=renderEntryCard(e);
-  showToast('💬 コメントを送信しました');
+  try{
+    await fsUpdateField(COLL_ENTRIES,String(eid),'comments',newComments);
+    showToast('💬 コメントを送信しました');
+  }catch(e2){showToast('⚠️ エラー: '+e2.message);}
 }
 
 // ==================================================
 // DELETE ENTRY
 // ==================================================
-function deleteEntry(id){
+async function deleteEntry(id){
   if(!confirm('この記録を削除しますか？'))return;
-  entries=entries.filter(e=>e.id!==id);
-  saveStorage();
-  renderYearTree();
-  renderEntries();
-  showToast('削除しました');
+  try{
+    await fsDelete(COLL_ENTRIES,String(id));
+    showToast('削除しました');
+  }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
 }
 
 // ==================================================
@@ -2048,70 +2107,70 @@ function renderUsersTable(){
   </table>`;
 }
 
-function changeRole(uid){
+async function changeRole(uid){
   const u=users.find(x=>x.id===uid);
   if(!u)return;
   const sel=document.getElementById('role-sel-'+uid);
   const newRole=sel.value;
   if(newRole===u.role){showToast('役職は変わっていません');return;}
   if(!confirm(`「${u.name}」の役職を「${ROLE_LABEL[u.role]}」→「${ROLE_LABEL[newRole]}」に変更しますか？`))return;
-  u.role=newRole;
-  saveStorage();
-  renderUsersTable();
-  renderLoginUsers();
-  showToast(`✅ ${u.name} の役職を「${ROLE_LABEL[newRole]}」に変更しました`);
+  try{
+    await fsUpdateField(COLL_USERS,uid,'role',newRole);
+    showToast('✅ '+u.name+' の役職を「'+ROLE_LABEL[newRole]+'」に変更しました');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-function addUser(){
+async function addUser(){
   const name=document.getElementById('new-user-name').value.trim();
   const role=document.getElementById('new-user-role').value;
   const pin=document.getElementById('new-user-pin').value.trim()||'1234';
   if(!name){showToast('氏名を入力してください');return;}
   if(users.find(u=>u.name===name)){showToast('同じ名前が既に登録されています');return;}
   if(!/^\d{4}$/.test(pin)){showToast('PINは4桁の数字にしてください');return;}
-  users.push({id:'u'+Date.now(),name,role,pin});
-  saveStorage();
-  renderUsersTable();
-  renderLoginUsers();
-  document.getElementById('new-user-name').value='';
-  document.getElementById('new-user-pin').value='';
-  showToast(name+' を追加しました');
+  const u={id:'u'+Date.now(),name,role,pin};
+  try{
+    await fsSet(COLL_USERS,u.id,u);
+    document.getElementById('new-user-name').value='';
+    document.getElementById('new-user-pin').value='';
+    showToast(name+' を追加しました');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-function deleteUser(uid){
+async function deleteUser(uid){
   const u=users.find(x=>x.id===uid);
   if(!u)return;
   if(!confirm('「'+u.name+'」を削除しますか？（記録データは保持されます）'))return;
-  users=users.filter(x=>x.id!==uid);
-  saveStorage();
-  renderUsersTable();
-  renderLoginUsers();
+  try{
+    await fsDelete(COLL_USERS,uid);
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-function resetPin(uid){
+async function resetPin(uid){
   const u=users.find(x=>x.id===uid);
   if(!u)return;
   if(!confirm(u.name+'のPINを「1234」に初期化しますか？'))return;
-  u.pin='1234';
-  saveStorage();
-  showToast(u.name+' のPINを初期化しました（1234）');
+  try{
+    await fsUpdateField(COLL_USERS,uid,'pin','1234');
+    showToast(u.name+' のPINを初期化しました（1234）');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
 // ==================================================
 // CHANGE OWN PIN
 // ==================================================
-function changePin(){
+async function changePin(){
   const cur=document.getElementById('pin-current').value;
   const nw=document.getElementById('pin-new').value;
   const conf=document.getElementById('pin-confirm').value;
   if(cur!==currentUser.pin){showToast('⚠️ 現在のPINが違います');return;}
   if(!/^\d{4}$/.test(nw)){showToast('⚠️ 新しいPINは4桁の数字にしてください');return;}
   if(nw!==conf){showToast('⚠️ 確認用PINが一致しません');return;}
-  const u=users.find(x=>x.id===currentUser.id);
-  if(u){u.pin=nw;currentUser.pin=nw;}
-  saveStorage();
-  ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
-  showToast('✅ PINを変更しました');
+  try{
+    await fsUpdateField(COLL_USERS,currentUser.id,'pin',nw);
+    currentUser.pin=nw;
+    ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
+    showToast('✅ PINを変更しました');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
 function renderDataStats(){
@@ -2192,7 +2251,7 @@ function printSelected(){
 // EXPORT / IMPORT
 // ==================================================
 function exportJSON(){
-  const data=JSON.stringify({entries,users},null,2);
+  const data=JSON.stringify({entries,users,notices},null,2);
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
   a.download='hoiku-backup-'+new Date().toISOString().split('T')[0]+'.json';
@@ -2201,19 +2260,19 @@ function exportJSON(){
 }
 function importJSON(ev){
   const f=ev.target.files[0];if(!f)return;
-  new FileReader().onload=e=>{
+  const r=new FileReader();
+  r.onload=async e=>{
     try{
       const d=JSON.parse(e.target.result);
-      if(d.entries) entries=d.entries;
-      if(d.users) users=d.users;
-      saveStorage();
-      renderYearTree();
-      renderLoginUsers();
-      showToast('✅ インポートしました（'+entries.length+'件）');
-    }catch(_){showToast('⚠️ 読み込みに失敗しました');}
+      const batch=db.batch();
+      const promises=[];
+      if(d.entries) d.entries.forEach(e=>promises.push(fsSet(COLL_ENTRIES,String(e.id),e)));
+      if(d.users) d.users.forEach(u=>promises.push(fsSet(COLL_USERS,u.id,u)));
+      if(d.notices) d.notices.forEach(n=>promises.push(fsSet(COLL_NOTICES,String(n.id),n)));
+      await Promise.all(promises);
+      showToast('✅ インポートしました');
+    }catch(e2){showToast('⚠️ 読み込みエラー: '+e2.message);}
   };
-  const r=new FileReader();
-  r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.entries)entries=d.entries;if(d.users)users=d.users;saveStorage();renderYearTree();renderLoginUsers();showToast('✅ インポートしました（'+entries.length+'件）');}catch(_){showToast('⚠️ 読み込みに失敗しました');}};
   r.readAsText(f);ev.target.value='';
 }
 
@@ -2395,10 +2454,47 @@ function renderEntriesWeekly(filtered){
 }
 
 
+
+// ==================================================
+// POLLING（15秒ごとに自動同期）
+// ==================================================
+async function pollData(){
+  try{
+    const [nu,ne,nn]=await Promise.all([fsGetAll(COLL_USERS),fsGetAll(COLL_ENTRIES),fsGetAll(COLL_NOTICES)]);
+    let changed=false;
+    if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
+       JSON.stringify(nu)!==JSON.stringify(users)){
+      users=nu;
+      renderLoginUsers();
+      if(currentView==='users') renderUsersTable();
+    }
+    ne.sort((a,b)=>b.date.localeCompare(a.date));
+    if(JSON.stringify(ne)!==JSON.stringify(entries)){
+      entries=ne; changed=true;
+      renderYearTree();
+      if(currentView==='entries') renderEntries();
+    }
+    nn.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    if(JSON.stringify(nn)!==JSON.stringify(notices)){
+      notices=nn;
+      updateNoticeBadge();
+      if(currentView==='notices') renderNotices();
+    }
+  }catch(e){ console.warn('poll error:',e); }
+}
+function startListeners(){
+  stopListeners();
+  pollData();
+  pollInterval=setInterval(pollData,15000);
+}
+function stopListeners(){
+  if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+}
+
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260506-006';
+const APP_VERSION = '20260506-009';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
@@ -2448,14 +2544,11 @@ function manualCheckUpdate() {
 // ==================================================
 // NOTICES
 // ==================================================
-const K_NOTICES='hoiku-notices-v1';
+// notices: use COLL_NOTICES
 let notices=[];
 let noticeSelectedRanges=new Set(['all']);
 
-function loadNotices(){
-  try{const s=localStorage.getItem(K_NOTICES);if(s)notices=JSON.parse(s);}catch(_){}
-}
-function saveNotices(){localStorage.setItem(K_NOTICES,JSON.stringify(notices));}
+// notices: use Firestore
 
 function canSeeNotice(u,n){
   if(!n.ranges||n.ranges.includes('all')) return true;
@@ -2499,7 +2592,7 @@ function toggleRange(el,val){
   }
 }
 
-function postNotice(){
+async function postNotice(){
   const title=document.getElementById('notice-title').value.trim();
   const body=document.getElementById('notice-body').value.trim();
   if(!title||!body){showToast('⚠️ タイトルと内容を入力してください');return;}
@@ -2515,33 +2608,30 @@ function postNotice(){
   };
   // auto-mark as read by poster
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
-  notices.unshift(n);
-  saveNotices();
-  document.getElementById('notice-title').value='';
-  document.getElementById('notice-body').value='';
-  toggleNoticeForm();
-  renderNotices();
-  updateNoticeBadge();
-  showToast('📢 お知らせを投稿しました');
+  try{
+    await fsSet(COLL_NOTICES,String(n.id),n);
+    document.getElementById('notice-title').value='';
+    document.getElementById('notice-body').value='';
+    toggleNoticeForm();
+    showToast('📢 お知らせを投稿しました');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-function markNoticeRead(nid){
+async function markNoticeRead(nid){
   const n=notices.find(x=>x.id===nid);
   if(!n||n.readBy.find(r=>r.userId===currentUser.id)) return;
-  n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
-  saveNotices();
-  const card=document.getElementById('ncard-'+nid);
-  if(card) card.outerHTML=buildNoticeCard(n);
-  updateNoticeBadge();
+  const newReadBy=[...(n.readBy||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()}];
+  try{
+    await fsUpdateField(COLL_NOTICES,String(nid),'readBy',newReadBy);
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-function deleteNotice(nid){
+async function deleteNotice(nid){
   if(!confirm('このお知らせを削除しますか？'))return;
-  notices=notices.filter(n=>n.id!==nid);
-  saveNotices();
-  renderNotices();
-  updateNoticeBadge();
-  showToast('削除しました');
+  try{
+    await fsDelete(COLL_NOTICES,String(nid));
+    showToast('削除しました');
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
 function updateNoticeBadge(){
@@ -2644,6 +2734,8 @@ function renderNotices(){
     band.style.backgroundPosition='center top';
   }
 })();
+
+init();
 
 init();
 </script>
