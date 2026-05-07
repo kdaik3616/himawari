@@ -2264,13 +2264,22 @@ function importJSON(ev){
   r.onload=async e=>{
     try{
       const d=JSON.parse(e.target.result);
-      const batch=db.batch();
-      const promises=[];
-      if(d.entries) d.entries.forEach(e=>promises.push(fsSet(COLL_ENTRIES,String(e.id),e)));
-      if(d.users) d.users.forEach(u=>promises.push(fsSet(COLL_USERS,u.id,u)));
-      if(d.notices) d.notices.forEach(n=>promises.push(fsSet(COLL_NOTICES,String(n.id),n)));
-      await Promise.all(promises);
-      showToast('✅ インポートしました');
+      if(d.entries) entries=d.entries;
+      if(d.users) users=d.users;
+      if(d.notices) notices=d.notices||[];
+      // Firebaseへの書き込みを試みる
+      try{
+        const promises=[];
+        if(d.entries) d.entries.forEach(en=>promises.push(fsSet(COLL_ENTRIES,String(en.id),en)));
+        if(d.users) d.users.forEach(u=>promises.push(fsSet(COLL_USERS,u.id,u)));
+        if(d.notices) d.notices.forEach(n=>promises.push(fsSet(COLL_NOTICES,String(n.id),n)));
+        await Promise.all(promises);
+        showToast('✅ Firebaseにインポートしました（'+entries.length+'件）');
+      }catch(fe){
+        showToast('✅ インポート完了（'+entries.length+'件）※Firebase未接続のため画面のみ反映');
+      }
+      renderYearTree();
+      renderLoginUsers();
     }catch(e2){showToast('⚠️ 読み込みエラー: '+e2.message);}
   };
   r.readAsText(f);ev.target.value='';
