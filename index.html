@@ -1494,9 +1494,20 @@ async function init(){
 
 function loadLocal(){
   try{
-    const u=localStorage.getItem('ls_users'); if(u) users=JSON.parse(u);
-    const e=localStorage.getItem('ls_entries'); if(e) entries=JSON.parse(e);
-    const n=localStorage.getItem('ls_notices'); if(n) notices=JSON.parse(n);
+    // 新キー → 旧キーの順で検索
+    let u=localStorage.getItem('ls_users')
+          ||localStorage.getItem('hoiku-users-v5')
+          ||localStorage.getItem('hoiku_import_users');
+    let e=localStorage.getItem('ls_entries')
+          ||localStorage.getItem('hoiku-entries-v4')
+          ||localStorage.getItem('hoiku_import_entries');
+    let n=localStorage.getItem('ls_notices')
+          ||localStorage.getItem('hoiku-notices-v1');
+    if(u) users=JSON.parse(u);
+    if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
+    if(n) notices=JSON.parse(n);
+    // 見つかったデータを新キーで保存（統一）
+    if(u||e||n) saveLocal();
   }catch(_){}
 }
 function saveLocal(){
@@ -1750,7 +1761,6 @@ function countE(year,staff){
 // SIDEBAR TREE
 // ==================================================
 function renderYearTree(){
-  renderYearTabs();
   const tree=document.getElementById('year-tree');
   const years=getYears();
   if(!years.length){tree.innerHTML='<div style="padding:8px 16px;font-size:12px;opacity:0.4;color:#c8d8ca;">記録なし</div>';return;}
@@ -2599,9 +2609,10 @@ function startListeners(){
   stopListeners();
   // 初回ポーリング：完了後にビューを再描画
   pollData().then(()=>{
-    if(currentView==='entries') renderEntries();
+    if(currentView==='entries'){ renderEntries(); renderYearTabs(); }
     if(currentView==='notices') renderNotices();
     renderYearTree();
+    renderYearTabs();
     populatePcFilters();
   });
   pollInterval=setInterval(pollData,8000);
