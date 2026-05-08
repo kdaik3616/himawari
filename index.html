@@ -1218,6 +1218,7 @@ select{
           <div class="filter-bar">
             <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">年度</label><select id="filter-year" onchange="renderEntries()"><option value="">全年度</option></select></div>
             <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">職員</label><select id="filter-staff-select" onchange="renderEntries()"><option value="">全員</option></select></div>
+            <div class="field-group" id="filter-staff-search-wrap" style="display:none;"><label class="field-label">職員名検索</label><input type="text" id="filter-staff-search" placeholder="🔍 名前で検索..." oninput="renderEntries()"></div>
             <div class="field-group"><label class="field-label">月で絞り込み</label><input type="month" id="filter-month" onchange="renderEntries()"></div>
             <div class="field-group"><label class="field-label">日付</label><input type="date" id="filter-date" onchange="renderEntries()"></div>
             <div id="filter-confirm-wrap" class="field-group" style="display:none;min-width:130px;">
@@ -1456,15 +1457,36 @@ function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
 // INIT
 // ==================================================
 async function init(){
+  // まずlocalStorageから即時読み込み（確実）
+  loadLocal();
+  // Firebaseからも非同期で同期
   try{
-    users=await fsGetAll(COLL_USERS);
-    if(!users.length) await initDefaultUsersDb();
-  }catch(e){
-    console.error('init error:',e);
-    users=[{id:'u1',name:'園長',role:'principal',pin:'1234'}];
-  }
+    const fu=await fsGetAll(COLL_USERS);
+    if(fu.length){ users=fu; saveLocal(); }
+    else if(!users.length){ await initDefaultUsersDb(); }
+    const fe=await fsGetAll(COLL_ENTRIES);
+    if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); }
+    const fn=await fsGetAll(COLL_NOTICES);
+    if(fn.length){ notices=fn; notices.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)); saveLocal(); }
+  }catch(e){ console.warn('Firebase sync error:',e); }
+  if(!users.length) users=[{id:'u1',name:'園長',role:'principal',pin:'1234'}];
   renderLoginUsers();
   setDefaultDate();
+}
+
+function loadLocal(){
+  try{
+    const u=localStorage.getItem('ls_users'); if(u) users=JSON.parse(u);
+    const e=localStorage.getItem('ls_entries'); if(e) entries=JSON.parse(e);
+    const n=localStorage.getItem('ls_notices'); if(n) notices=JSON.parse(n);
+  }catch(_){}
+}
+function saveLocal(){
+  try{
+    localStorage.setItem('ls_users', JSON.stringify(users));
+    localStorage.setItem('ls_entries', JSON.stringify(entries));
+    localStorage.setItem('ls_notices', JSON.stringify(notices));
+  }catch(_){}
 }
 
 // storage: use Firestore
@@ -1773,6 +1795,9 @@ function showView(v){
   if(v==='entries'){
     document.getElementById('filter-confirm-wrap').style.display=isAdmin(currentUser)?'block':'none';
     // PC用：年度・職員フィルターを表示し選択肢を更新
+    // 職員名検索（スマホ・PC共通・管理者のみ）
+    const sw=document.getElementById('filter-staff-search-wrap');
+    if(sw) sw.style.display=isAdmin(currentUser)?'block':'none';
     if(window.innerWidth>=769){
       document.querySelectorAll('.pc-only-filter').forEach(el=>el.style.display='block');
       populatePcFilters();
@@ -1852,11 +1877,17 @@ async function saveEntry(){
     comments:existing?.comments||[],
     savedAt:new Date().toISOString()
   };
-  try{
-    await fsSet(COLL_ENTRIES,docId,entry);
-    showToast('✅ 保存しました！');
-    clearInputForm();
-  }catch(e){showToast('⚠️ 保存エラー: '+e.message);}
+  // ローカルに即時保存
+  entries=entries.filter(e=>e.id!==entry.id);
+  entries.push(entry);
+  entries.sort((a,b)=>b.date.localeCompare(a.date));
+  saveLocal();
+  renderYearTree();
+  if(currentView==='entries') renderEntries();
+  showToast('✅ 保存しました！');
+  clearInputForm();
+  // Firebaseにも非同期で同期
+  fsSet(COLL_ENTRIES,docId,entry).catch(e=>console.warn('Firebase save error:',e));
 }
 function clearInputForm(){
   ['input-weekly-goal','input-daily-goal','input-activity','input-support',
@@ -1876,6 +1907,9 @@ function getFiltered(){
   if(fy) list=list.filter(e=>String(e.fiscalYear)===fy);
   const fs=document.getElementById('filter-staff-select')?.value;
   if(fs) list=list.filter(e=>e.staff===fs);
+  // 職員名テキスト検索（管理者のみ）
+  const fss=document.getElementById('filter-staff-search')?.value?.trim();
+  if(fss) list=list.filter(e=>e.staff&&e.staff.includes(fss));
   const fm=document.getElementById('filter-month')?.value;
   if(fm) list=list.filter(e=>e.date.startsWith(fm));
   const fd=document.getElementById('filter-date')?.value;
@@ -2048,10 +2082,12 @@ async function addComment(eid){
 // ==================================================
 async function deleteEntry(id){
   if(!confirm('この記録を削除しますか？'))return;
-  try{
-    await fsDelete(COLL_ENTRIES,String(id));
-    showToast('削除しました');
-  }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
+  entries=entries.filter(e=>e.id!==id);
+  saveLocal();
+  renderYearTree();
+  renderEntries();
+  showToast('削除しました');
+  fsDelete(COLL_ENTRIES,String(id)).catch(e=>console.warn('Firebase delete error:',e));
 }
 
 // ==================================================
@@ -2479,6 +2515,7 @@ async function pollData(){
       if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
          JSON.stringify(nu)!==JSON.stringify(users)){
         users=nu;
+        saveLocal();
         renderLoginUsers();
         if(currentView==='users') renderUsersTable();
       }
@@ -2487,6 +2524,7 @@ async function pollData(){
       ne.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(ne)!==JSON.stringify(entries)){
         entries=ne;
+        saveLocal();
         renderYearTree();
         if(currentView==='entries') renderEntries();
         populatePcFilters();
@@ -2520,7 +2558,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260506-009';
+const APP_VERSION = '20260506-010';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
