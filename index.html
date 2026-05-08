@@ -639,6 +639,23 @@ select{
   body:not(.admin-user) #pcnav-users{display:none!important;}
   body.admin-user #pcnav-users{display:flex!important;}
 
+  /* 年度タブバー */
+  .year-tab-bar{
+    display:flex;gap:4px;padding:6px 32px;
+    background:var(--cream);border-bottom:2px solid var(--border);
+    overflow-x:auto;flex-shrink:0;
+  }
+  .year-tab-bar::-webkit-scrollbar{height:3px;}
+  .year-tab-bar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .year-tab{
+    padding:6px 16px;border-radius:16px;font-size:12px;font-weight:600;
+    border:1.5px solid var(--border);background:var(--white);color:var(--warm-gray);
+    cursor:pointer;white-space:nowrap;font-family:'M PLUS Rounded 1c',sans-serif;
+    transition:all 0.15s;flex-shrink:0;
+  }
+  .year-tab:hover{background:var(--green-light);border-color:var(--green);}
+  .year-tab.active{background:var(--green-dark);color:#fff;border-color:var(--green-dark);}
+
   /* ===== PC ログイン画面（左右分割） ===== */
   #login-screen{
     background:var(--white);
@@ -1137,6 +1154,7 @@ select{
 
     <!-- MAIN -->
     <div class="main-area">
+      <div class="year-tab-bar" id="year-tab-bar" style="display:none;"></div>
       <div class="topbar" id="topbar">
         <div>
           <div class="topbar-title" id="topbar-title">日誌入力</div>
@@ -1218,7 +1236,7 @@ select{
           <div class="filter-bar">
             <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">年度</label><select id="filter-year" onchange="renderEntries()"><option value="">全年度</option></select></div>
             <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">職員</label><select id="filter-staff-select" onchange="renderEntries()"><option value="">全員</option></select></div>
-            <div class="field-group" id="filter-staff-search-wrap" style="display:none;"><label class="field-label">職員名検索</label><input type="text" id="filter-staff-search" placeholder="🔍 名前で検索..." oninput="renderEntries()"></div>
+            <div class="field-group" id="filter-staff-search-wrap" style="display:none;"><label class="field-label">職員名</label><select id="filter-staff-search" onchange="renderEntries()"><option value="">全員</option></select></div>
             <div class="field-group"><label class="field-label">月で絞り込み</label><input type="month" id="filter-month" onchange="renderEntries()"></div>
             <div class="field-group"><label class="field-label">日付</label><input type="date" id="filter-date" onchange="renderEntries()"></div>
             <div id="filter-confirm-wrap" class="field-group" style="display:none;min-width:130px;">
@@ -1732,6 +1750,7 @@ function countE(year,staff){
 // SIDEBAR TREE
 // ==================================================
 function renderYearTree(){
+  renderYearTabs();
   const tree=document.getElementById('year-tree');
   const years=getYears();
   if(!years.length){tree.innerHTML='<div style="padding:8px 16px;font-size:12px;opacity:0.4;color:#c8d8ca;">記録なし</div>';return;}
@@ -1798,6 +1817,8 @@ function showView(v){
     // 職員名検索（スマホ・PC共通・管理者のみ）
     const sw=document.getElementById('filter-staff-search-wrap');
     if(sw) sw.style.display=isAdmin(currentUser)?'block':'none';
+    if(isAdmin(currentUser)) populateStaffSearchSelect();
+    renderYearTabs();
     if(window.innerWidth>=769){
       document.querySelectorAll('.pc-only-filter').forEach(el=>el.style.display='block');
       populatePcFilters();
@@ -1908,8 +1929,8 @@ function getFiltered(){
   const fs=document.getElementById('filter-staff-select')?.value;
   if(fs) list=list.filter(e=>e.staff===fs);
   // 職員名テキスト検索（管理者のみ）
-  const fss=document.getElementById('filter-staff-search')?.value?.trim();
-  if(fss) list=list.filter(e=>e.staff&&e.staff.includes(fss));
+  const fss=document.getElementById('filter-staff-search')?.value;
+  if(fss) list=list.filter(e=>e.staff===fss);
   const fm=document.getElementById('filter-month')?.value;
   if(fm) list=list.filter(e=>e.date.startsWith(fm));
   const fd=document.getElementById('filter-date')?.value;
@@ -1921,7 +1942,9 @@ function getFiltered(){
 }
 
 function clearFilters(){
-  ['filter-month','filter-date','filter-confirm','filter-year','filter-staff-select'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['filter-month','filter-date','filter-confirm','filter-year','filter-staff-select','filter-staff-search'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
   cvFilter={year:null,staff:null};
   renderYearTree();
   renderEntries();
@@ -2347,6 +2370,38 @@ function updatePcNav(view){
   if(btn) btn.classList.add('active');
 }
 
+function renderYearTabs(){
+  const bar=document.getElementById('year-tab-bar');
+  if(!bar) return;
+  // PCのみ表示
+  if(window.innerWidth<769){ bar.style.display='none'; return; }
+  const years=getYears();
+  if(!years.length){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const activeYear=cvFilter.year;
+  bar.innerHTML=
+    `<button class="year-tab ${!activeYear?'active':''}" onclick="setYearFilter(null)">📋 全年度</button>`+
+    years.map(y=>`<button class="year-tab ${y===activeYear?'active':''}" onclick="setYearFilter(${y})">${y}年度</button>`).join('');
+}
+
+function setYearFilter(year){
+  cvFilter.year=year;
+  cvFilter.staff=null;
+  renderYearTabs();
+  renderYearTree();
+  if(currentView==='entries') renderEntries();
+  populateStaffSearchSelect();
+  populatePcFilters();
+}
+
+function populateStaffSearchSelect(){
+  const sel=document.getElementById('filter-staff-search');
+  if(!sel) return;
+  const cur=sel.value;
+  const staffNames=[...new Set(entries.filter(e=>canViewEntry(currentUser,e)).map(e=>e.staff))].sort();
+  sel.innerHTML='<option value="">全員</option>'+staffNames.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
+}
+
 function populatePcFilters(){
   const ysel=document.getElementById('filter-year');
   const ssel=document.getElementById('filter-staff-select');
@@ -2549,7 +2604,7 @@ function startListeners(){
     renderYearTree();
     populatePcFilters();
   });
-  pollInterval=setInterval(pollData,15000);
+  pollInterval=setInterval(pollData,8000);
 }
 function stopListeners(){
   if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
@@ -2558,7 +2613,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260506-010';
+const APP_VERSION = '20260506-011';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
