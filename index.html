@@ -1898,7 +1898,11 @@ function renderEntries(){
   const c=document.getElementById('entries-container');
   updateSelUI();
   if(!filtered.length){
-    c.innerHTML=`<div class="no-data"><div class="no-data-icon">📁</div><div class="no-data-text">記録が見つかりません。</div></div>`;
+    const total=entries.filter(e=>canViewEntry(currentUser,e)).length;
+    c.innerHTML=`<div class="no-data"><div class="no-data-icon">📁</div><div class="no-data-text">
+      ${total>0?'フィルターを変えると'+total+'件の記録があります。<br>「リセット」ボタンを押してください。':'まだ記録がありません。<br>日誌入力から記録を追加してください。'}
+      <br><br><button class="btn-secondary" onclick="clearFilters();cvFilter={year:null,staff:null};renderYearTree();renderEntries();">🔄 全件表示</button>
+    </div></div>`;
     return;
   }
   const isPC=window.innerWidth>=769;
@@ -2469,30 +2473,44 @@ function renderEntriesWeekly(filtered){
 async function pollData(){
   try{
     const [nu,ne,nn]=await Promise.all([fsGetAll(COLL_USERS),fsGetAll(COLL_ENTRIES),fsGetAll(COLL_NOTICES)]);
-    let changed=false;
-    if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
-       JSON.stringify(nu)!==JSON.stringify(users)){
-      users=nu;
-      renderLoginUsers();
-      if(currentView==='users') renderUsersTable();
+
+    // Firebaseが空でもローカルデータを消さない（接続エラー対策）
+    if(nu.length>0){
+      if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
+         JSON.stringify(nu)!==JSON.stringify(users)){
+        users=nu;
+        renderLoginUsers();
+        if(currentView==='users') renderUsersTable();
+      }
     }
-    ne.sort((a,b)=>b.date.localeCompare(a.date));
-    if(JSON.stringify(ne)!==JSON.stringify(entries)){
-      entries=ne; changed=true;
-      renderYearTree();
-      if(currentView==='entries') renderEntries();
+    if(ne.length>0){
+      ne.sort((a,b)=>b.date.localeCompare(a.date));
+      if(JSON.stringify(ne)!==JSON.stringify(entries)){
+        entries=ne;
+        renderYearTree();
+        if(currentView==='entries') renderEntries();
+        populatePcFilters();
+      }
     }
-    nn.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-    if(JSON.stringify(nn)!==JSON.stringify(notices)){
-      notices=nn;
-      updateNoticeBadge();
-      if(currentView==='notices') renderNotices();
+    if(nn.length>0||notices.length===0){
+      nn.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      if(JSON.stringify(nn)!==JSON.stringify(notices)){
+        notices=nn;
+        updateNoticeBadge();
+        if(currentView==='notices') renderNotices();
+      }
     }
   }catch(e){ console.warn('poll error:',e); }
 }
 function startListeners(){
   stopListeners();
-  pollData();
+  // 初回ポーリング：完了後にビューを再描画
+  pollData().then(()=>{
+    if(currentView==='entries') renderEntries();
+    if(currentView==='notices') renderNotices();
+    renderYearTree();
+    populatePcFilters();
+  });
   pollInterval=setInterval(pollData,15000);
 }
 function stopListeners(){
