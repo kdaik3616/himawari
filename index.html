@@ -639,7 +639,12 @@ select{
   body:not(.admin-user) #pcnav-users{display:none!important;}
   body.admin-user #pcnav-users{display:flex!important;}
 
-  /* 年度タブバー */
+  /* 年度タブバー（PCのみ、entries表示時） */
+  /* 年度タブ（entries内） */
+  .year-tabs-pc{
+    display:flex;flex-wrap:wrap;gap:6px;
+    margin-bottom:12px;
+  }
   .year-tab-bar{
     display:flex;gap:4px;padding:6px 32px;
     background:var(--cream);border-bottom:2px solid var(--border);
@@ -647,6 +652,7 @@ select{
   }
   .year-tab-bar::-webkit-scrollbar{height:3px;}
   .year-tab-bar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  @media(max-width:768px){ .year-tabs-pc{display:none!important;} }
   .year-tab{
     padding:6px 16px;border-radius:16px;font-size:12px;font-weight:600;
     border:1.5px solid var(--border);background:var(--white);color:var(--warm-gray);
@@ -655,6 +661,56 @@ select{
   }
   .year-tab:hover{background:var(--green-light);border-color:var(--green);}
   .year-tab.active{background:var(--green-dark);color:#fff;border-color:var(--green-dark);}
+
+  /* ===== FILES VIEW (年度別ファイル管理) ===== */
+  .files-breadcrumb{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:10px 14px;background:var(--cream);border-radius:12px;
+    margin-bottom:14px;font-size:13px;border:1px solid var(--border);
+  }
+  .files-crumb{
+    background:none;border:none;color:var(--green-dark);
+    cursor:pointer;font-family:'M PLUS Rounded 1c',sans-serif;font-size:13px;
+    font-weight:600;padding:4px 8px;border-radius:6px;
+  }
+  .files-crumb:hover{background:var(--green-light);}
+  .files-crumb.current{color:var(--text);cursor:default;font-weight:700;}
+  .files-crumb.current:hover{background:none;}
+  .files-crumb-sep{color:var(--warm-gray);font-size:11px;}
+  .files-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:14px;padding:4px;
+  }
+  .file-card{
+    background:var(--white);border:2px solid var(--border);border-radius:14px;
+    padding:18px 16px;cursor:pointer;transition:all 0.18s;
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    box-shadow:var(--shadow);
+  }
+  .file-card:hover{
+    border-color:var(--sun);transform:translateY(-2px);
+    box-shadow:0 6px 18px rgba(245,197,24,0.25);
+  }
+  .file-card-icon{font-size:42px;margin-bottom:10px;line-height:1;}
+  .file-card-title{
+    font-size:15px;font-weight:700;color:var(--green-dark);margin-bottom:4px;
+  }
+  .file-card-meta{font-size:11px;color:var(--warm-gray);}
+  .file-card-count{
+    margin-top:8px;background:var(--sun-light);color:var(--green-dark);
+    padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;
+  }
+  .files-empty{
+    text-align:center;padding:50px 20px;color:var(--warm-gray);
+    background:var(--cream);border-radius:14px;border:2px dashed var(--border);
+  }
+  .files-empty-icon{font-size:48px;margin-bottom:10px;opacity:0.6;}
+  @media(max-width:768px){
+    .files-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+    .file-card{padding:14px 10px;}
+    .file-card-icon{font-size:34px;}
+    .file-card-title{font-size:13px;}
+  }
 
   /* ===== PC ログイン画面（左右分割） ===== */
   #login-screen{
@@ -1118,6 +1174,7 @@ select{
     <div class="app-header-nav" id="app-header-nav">
       <button class="app-header-nav-btn" id="pcnav-input" onclick="showView('input')">✏️ 日誌入力</button>
       <button class="app-header-nav-btn active" id="pcnav-entries" onclick="showView('entries')">📋 記録一覧</button>
+      <button class="app-header-nav-btn" id="pcnav-files" onclick="showView('files')">📁 年度別ファイル</button>
       <button class="app-header-nav-btn" id="pcnav-notices" onclick="showView('notices')">
         📢 お知らせ <span id="notice-badge-pc" style="display:none;background:var(--orange);color:white;border-radius:8px;padding:0 6px;font-size:10px;margin-left:2px;"></span>
       </button>
@@ -1136,7 +1193,8 @@ select{
           <button class="snav-btn active" id="nav-input" onclick="showView('input')">✏️ 日誌入力</button>
         </div>
         <div class="sdivider"></div>
-        <span class="sidebar-section-label">📁 年度別ファイル</span>
+        <button class="snav-btn" id="nav-files" onclick="showView('files')">📁 年度別ファイル管理</button>
+        <span class="sidebar-section-label">📁 年度別クイックリンク</span>
         <div id="year-tree"></div>
         <div class="sdivider" id="admin-divider" style="display:none;"></div>
         <div id="admin-sidebar" style="display:none;">
@@ -1233,21 +1291,27 @@ select{
 
         <!-- ENTRIES VIEW -->
         <div id="view-entries" class="view">
+          <!-- 年度タブ（PCのみ表示） -->
+          <div id="year-tabs-pc" class="year-tabs-pc" style="display:none;"></div>
           <div class="filter-bar">
-            <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">年度</label><select id="filter-year" onchange="renderEntries()"><option value="">全年度</option></select></div>
-            <div class="field-group pc-only-filter" style="display:none;"><label class="field-label">職員</label><select id="filter-staff-select" onchange="renderEntries()"><option value="">全員</option></select></div>
-            <div class="field-group" id="filter-staff-search-wrap" style="display:none;"><label class="field-label">職員名</label><select id="filter-staff-search" onchange="renderEntries()"><option value="">全員</option></select></div>
-            <div class="field-group"><label class="field-label">月で絞り込み</label><input type="month" id="filter-month" onchange="renderEntries()"></div>
-            <div class="field-group"><label class="field-label">日付</label><input type="date" id="filter-date" onchange="renderEntries()"></div>
-            <div id="filter-confirm-wrap" class="field-group" style="display:none;min-width:130px;">
-              <label class="field-label">確認状況</label>
-              <select id="filter-confirm" onchange="renderEntries()">
+            <div class="field-group"><label class="field-label">年度</label>
+              <select id="filter-year" autocomplete="off"><option value="">全年度</option></select>
+            </div>
+            <div class="field-group" id="filter-staff-wrap" style="display:none;"><label class="field-label">職員名</label>
+              <select id="filter-staff-search" autocomplete="off"><option value="">全員</option></select>
+            </div>
+            <div class="field-group"><label class="field-label">月</label>
+              <input type="month" id="filter-month" autocomplete="off">
+            </div>
+            <div class="field-group"><label class="field-label">確認状況</label>
+              <select id="filter-confirm" autocomplete="off" onchange="applyFilters()">
                 <option value="">全て</option>
-                <option value="unconfirmed">未確認のみ</option>
-                <option value="confirmed">確認済みのみ</option>
+                <option value="confirmed">✓ 確認済みのみ</option>
+                <option value="unconfirmed">⚠ 未確認のみ</option>
               </select>
             </div>
-            <button class="btn-secondary" onclick="clearFilters()">リセット</button>
+            <button class="btn-primary btn-sm" onclick="applyFilters()">🔍 検索</button>
+            <button class="btn-secondary btn-sm" onclick="clearFilters()">リセット</button>
             <div style="margin-left:auto;display:flex;gap:8px;">
               <button class="btn-secondary btn-sm" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
             </div>
@@ -1258,6 +1322,12 @@ select{
             <span id="selected-count" style="font-size:12px;color:var(--accent);margin-left:8px;"></span>
           </div>
           <div id="entries-container" class="entry-grid"></div>
+        </div>
+
+        <!-- FILES VIEW (年度別ファイル管理) -->
+        <div id="view-files" class="view">
+          <div id="files-breadcrumb" class="files-breadcrumb"></div>
+          <div id="files-content"></div>
         </div>
 
         <!-- USERS VIEW (admin only) -->
@@ -1456,6 +1526,8 @@ let entries=[];
 let users=[];
 let currentUser=null; // logged-in user
 let cvFilter={year:null,staff:null};
+let viewMode='cards'; // ★追加: PC表示モード(cards/table/weekly)の初期値。未宣言だとReferenceErrorになる
+let currentView='entries'; // ★追加: 現在のビュー(showViewから書き込まれる)
 
 const ROLE_LABEL={
   'principal':'園長','vice_principal':'副園長',
@@ -1642,11 +1714,17 @@ function logout(){
 function onLogin(){
   try{
     const u=currentUser;
-    document.getElementById('header-user-name').innerHTML=`${u.name} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
-    document.getElementById('admin-divider').style.display=isAdmin(u)?'block':'none';
-    document.getElementById('admin-sidebar').style.display=isAdmin(u)?'block':'none';
-    document.getElementById('sidebar-input-btn').style.display='block';
-    document.getElementById('input-staff-name').value=u.name;
+    const headerName=document.getElementById('header-user-name');
+    if(headerName) headerName.innerHTML=`${u.name} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
+    // サイドバー要素はnullの場合がある（PC/モバイルで異なる）
+    const adminDiv=document.getElementById('admin-divider');
+    if(adminDiv) adminDiv.style.display=isAdmin(u)?'block':'none';
+    const adminSide=document.getElementById('admin-sidebar');
+    if(adminSide) adminSide.style.display=isAdmin(u)?'block':'none';
+    const inputBtn=document.getElementById('sidebar-input-btn');
+    if(inputBtn) inputBtn.style.display='block';
+    const staffName=document.getElementById('input-staff-name');
+    if(staffName) staffName.value=u.name;
     setDefaultDate();
     renderYearTree();
     setTimeout(checkForUpdate, 3000);
@@ -1656,6 +1734,14 @@ function onLogin(){
     updatePcAdminNav();
     if(isAdmin(u)){showView('entries');cvFilter={year:null,staff:null};}
     else showView('input');
+    // ★追加: 自動同期(8秒ごとのFirestoreポーリング)を開始
+    startListeners();
+    // ★追加: タブが再表示されたとき(別端末で見るためにアプリを開いた瞬間)に即座に同期
+    document.addEventListener('visibilitychange', ()=>{
+      if(!document.hidden && currentUser){ pollData(); }
+    });
+    // ★追加: ネットワーク復帰時にも即同期
+    window.addEventListener('online', ()=>{ if(currentUser) pollData(); });
   } catch(e){
     console.error('onLogin error:', e);
     showToast('⚠️ 読み込みエラー: '+e.message);
@@ -1737,7 +1823,7 @@ function toggleYearInPanel(year){
 }
 
 function selectFilterMobile(year,staff){
-  cvFilter={year,staff};closeYearPanel();renderYearTree();showView('entries');
+  cvFilter={year,staff};syncFiltersToDom();closeYearPanel();renderYearTree();showView('entries');
 }
 
 // ==================================================
@@ -1792,6 +1878,100 @@ function toggleYear(year){
 
 function selectFilter(year,staff){
   cvFilter={year,staff};
+  syncFiltersToDom();
+  renderYearTree();
+  showView('entries');
+}
+
+// ==================================================
+// FILES VIEW (年度別ファイル管理) - PC/モバイル両対応
+// ==================================================
+// filesViewState.level: 'years' | 'staff' （年度→職員→ entriesに遷移）
+let filesViewState={level:'years',year:null};
+
+function renderFilesView(){
+  const bc=document.getElementById('files-breadcrumb');
+  const c=document.getElementById('files-content');
+  if(!bc||!c) return;
+
+  // パンくずリスト
+  if(filesViewState.level==='years'){
+    bc.innerHTML=`<span class="files-crumb current">📁 全年度</span>`;
+  } else if(filesViewState.level==='staff'){
+    bc.innerHTML=`
+      <button class="files-crumb" onclick="filesGoYears()">📁 全年度</button>
+      <span class="files-crumb-sep">▶</span>
+      <span class="files-crumb current">📅 ${filesViewState.year}年度</span>
+    `;
+  }
+
+  // コンテンツ
+  if(filesViewState.level==='years'){
+    const years=getYears();
+    if(!years.length){
+      c.innerHTML=`<div class="files-empty">
+        <div class="files-empty-icon">📂</div>
+        <div>まだ記録がありません。<br>「日誌入力」から記録を追加してください。</div>
+      </div>`;
+      return;
+    }
+    c.innerHTML=`<div class="files-grid">${years.map(y=>{
+      const cnt=countE(y,null);
+      const staffCnt=getStaffForYear(y).length;
+      return `<div class="file-card" onclick="filesOpenYear(${y})">
+        <div class="file-card-icon">📁</div>
+        <div class="file-card-title">${y}年度</div>
+        <div class="file-card-meta">職員 ${staffCnt}名</div>
+        <div class="file-card-count">${cnt}件</div>
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+
+  if(filesViewState.level==='staff'){
+    const year=filesViewState.year;
+    const staffList=getStaffForYear(year);
+    const allCnt=countE(year,null);
+    let cards=`<div class="file-card" onclick="filesOpenStaff(${year},null)">
+      <div class="file-card-icon">📂</div>
+      <div class="file-card-title">全員の記録</div>
+      <div class="file-card-meta">${year}年度</div>
+      <div class="file-card-count">${allCnt}件</div>
+    </div>`;
+    cards+=staffList.map(s=>{
+      const cnt=countE(year,s);
+      const sJs=String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div class="file-card" onclick="filesOpenStaff(${year},'${sJs}')">
+        <div class="file-card-icon">👤</div>
+        <div class="file-card-title">${esc(s)}</div>
+        <div class="file-card-meta">${year}年度</div>
+        <div class="file-card-count">${cnt}件</div>
+      </div>`;
+    }).join('');
+    if(!staffList.length){
+      c.innerHTML=`<div class="files-empty">
+        <div class="files-empty-icon">📂</div>
+        <div>${year}年度の記録がありません。</div>
+      </div>`;
+      return;
+    }
+    c.innerHTML=`<div class="files-grid">${cards}</div>`;
+    return;
+  }
+}
+
+function filesOpenYear(year){
+  filesViewState={level:'staff',year};
+  renderFilesView();
+}
+function filesGoYears(){
+  filesViewState={level:'years',year:null};
+  renderFilesView();
+}
+function filesOpenStaff(year,staff){
+  // フィルタを適用してentriesビューに遷移
+  cvFilter={year,staff:staff||null};
+  syncFiltersToDom();
   renderYearTree();
   showView('entries');
 }
@@ -1800,9 +1980,11 @@ function selectFilter(year,staff){
 // VIEW SWITCHING
 // ==================================================
 function showView(v){
+  currentView=v; // ★追加: 現在のビューを記憶（pollDataなどで参照される）
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.snav-btn').forEach(x=>x.classList.remove('active'));
-  document.getElementById('view-'+v).classList.add('active');
+  const target=document.getElementById('view-'+v);
+  if(target) target.classList.add('active');
   if(document.getElementById('nav-'+v)) document.getElementById('nav-'+v).classList.add('active');
   updateBnavActive(v);
   updatePcNav(v);
@@ -1813,26 +1995,27 @@ function showView(v){
       cvFilter.staff?cvFilter.staff+' の記録':(cvFilter.year?cvFilter.year+'年度 全職員':'全記録'),
       cvFilter.year?cvFilter.year+'年度':''
     ],
+    files:['📁 年度別ファイル管理','年度→職員→記録の順でドリルダウン'],
     notices:['📢 お知らせ','園内連絡・共有事項'],
     users:['ユーザー管理','PIN・権限の設定'],
     settings:['設定','PINの変更・データ管理']
   };
   const t=titles[v]||['',''];
-  document.getElementById('topbar-title').textContent=t[0];
-  document.getElementById('topbar-sub').textContent=t[1];
+  const tt=document.getElementById('topbar-title');
+  if(tt) tt.textContent=t[0];
+  const ts=document.getElementById('topbar-sub');
+  if(ts) ts.textContent=t[1];
 
   if(v==='entries'){
-    document.getElementById('filter-confirm-wrap').style.display=isAdmin(currentUser)?'block':'none';
-    // PC用：年度・職員フィルターを表示し選択肢を更新
-    // 職員名検索（スマホ・PC共通・管理者のみ）
-    const sw=document.getElementById('filter-staff-search-wrap');
+    // ★修正: filter-confirm-wrap は HTML に存在しないので null チェック
+    const fcw=document.getElementById('filter-confirm-wrap');
+    if(fcw) fcw.style.display=isAdmin(currentUser)?'block':'none';
+    // 職員名検索（管理者のみ表示）
+    const sw=document.getElementById('filter-staff-search-wrap')||document.getElementById('filter-staff-wrap');
     if(sw) sw.style.display=isAdmin(currentUser)?'block':'none';
     if(isAdmin(currentUser)) populateStaffSearchSelect();
+    populateYearSelect(); // ★追加: 年度selectのoptionを最新化
     renderYearTabs();
-    if(window.innerWidth>=769){
-      document.querySelectorAll('.pc-only-filter').forEach(el=>el.style.display='block');
-      populatePcFilters();
-    }
     // PC view mode buttons
     const ta=document.getElementById('topbar-actions');
     if(ta&&window.innerWidth>=769){
@@ -1841,12 +2024,20 @@ function showView(v){
         <button class="view-mode-btn ${viewMode==='table'?'active':''}" data-mode="table" onclick="setViewMode('table')">📊 テーブル</button>
         <button class="view-mode-btn ${viewMode==='weekly'?'active':''}" data-mode="weekly" onclick="setViewMode('weekly')">📅 横並び</button>
       </div>`;
+    } else if(ta){
+      ta.innerHTML=''; // モバイル時はクリア
     }
     renderEntries();
   }
   if(v==='notices') renderNotices();
   if(v==='users') renderUsersTable();
   if(v==='settings') renderDataStats();
+  if(v==='files'){
+    // PC用：トップバーアクションをクリア
+    const ta=document.getElementById('topbar-actions');
+    if(ta) ta.innerHTML='';
+    renderFilesView();
+  }
 
   // scroll to top on mobile
   const content=document.querySelector('.content');
@@ -1914,6 +2105,7 @@ async function saveEntry(){
   entries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
   renderYearTree();
+  renderYearTabs();
   if(currentView==='entries') renderEntries();
   showToast('✅ 保存しました！');
   clearInputForm();
@@ -1931,32 +2123,59 @@ function clearInputForm(){
 // ==================================================
 function getFiltered(){
   let list=entries.filter(e=>canViewEntry(currentUser,e));
-  if(cvFilter.year) list=list.filter(e=>e.fiscalYear===cvFilter.year);
-  if(cvFilter.staff) list=list.filter(e=>e.staff===cvFilter.staff);
-  // PCフィルター
-  const fy=document.getElementById('filter-year')?.value;
-  if(fy) list=list.filter(e=>String(e.fiscalYear)===fy);
-  const fs=document.getElementById('filter-staff-select')?.value;
-  if(fs) list=list.filter(e=>e.staff===fs);
-  // 職員名テキスト検索（管理者のみ）
-  const fss=document.getElementById('filter-staff-search')?.value;
-  if(fss) list=list.filter(e=>e.staff===fss);
+
+  // 年度フィルタ: DOMの値が指定されていればそれを優先、空なら cvFilter.year を使う
+  const fyDom=document.getElementById('filter-year')?.value;
+  const yearFilter = fyDom ? Number(fyDom) : cvFilter.year;
+  if(yearFilter) list=list.filter(e=>e.fiscalYear===yearFilter);
+
+  // 職員フィルタ: DOMの値が指定されていればそれを優先、空なら cvFilter.staff を使う
+  const fssDom=document.getElementById('filter-staff-search')?.value;
+  const staffFilter = fssDom || cvFilter.staff;
+  if(staffFilter) list=list.filter(e=>e.staff===staffFilter);
+
+  // 月フィルタ: DOMの値が指定されている時のみ適用（cvFilterに月は無い）
   const fm=document.getElementById('filter-month')?.value;
-  if(fm) list=list.filter(e=>e.date.startsWith(fm));
-  const fd=document.getElementById('filter-date')?.value;
-  if(fd) list=list.filter(e=>e.date===fd);
+  if(fm) list=list.filter(e=>e.date && e.date.startsWith(fm));
+
+  // 確認状況フィルタ: confirmed=確認済みのみ / unconfirmed=未確認のみ / 空=全て
   const fc=document.getElementById('filter-confirm')?.value;
-  if(fc==='unconfirmed') list=list.filter(e=>!(e.confirmations&&e.confirmations.length));
-  if(fc==='confirmed') list=list.filter(e=>e.confirmations&&e.confirmations.length>0);
+  if(fc==='confirmed'){
+    list=list.filter(e=>e.confirmations && e.confirmations.length>0);
+  } else if(fc==='unconfirmed'){
+    list=list.filter(e=>!e.confirmations || e.confirmations.length===0);
+  }
+
   return list;
 }
 
+// ★追加: cvFilter(サイドバー/ファイル管理ビューのフィルタ)とDOMの検索バーを同期
+//        過去の検索値が残ったまま別年度/職員に切り替わると0件になる問題の対策
+function syncFiltersToDom(){
+  // ★重要: 値をセットする前に、年度・職員のoptionを必ず最新化する
+  //  （optionに該当値が存在しないと select.value のセットが無効化されるため）
+  try{ populateYearSelect(); }catch(_){}
+  try{ if(isAdmin(currentUser)) populateStaffSearchSelect(); }catch(_){}
+  const fy=document.getElementById('filter-year');
+  if(fy) fy.value=cvFilter.year?String(cvFilter.year):'';
+  const fss=document.getElementById('filter-staff-search');
+  if(fss) fss.value=cvFilter.staff||'';
+  const fm=document.getElementById('filter-month');
+  if(fm) fm.value='';  // 月は明示的に空にする(ブラウザの自動入力対策)
+  const fc=document.getElementById('filter-confirm');
+  if(fc) fc.value=''; // 確認状況フィルターもリセット
+}
+
+function applyFilters(){
+  renderEntries();
+}
 function clearFilters(){
-  ['filter-month','filter-date','filter-confirm','filter-year','filter-staff-select','filter-staff-search'].forEach(id=>{
+  ['filter-month','filter-year','filter-staff-search','filter-confirm'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
   cvFilter={year:null,staff:null};
   renderYearTree();
+  renderYearTabs();
   renderEntries();
 }
 
@@ -1964,21 +2183,88 @@ function renderEntries(){
   const filtered=getFiltered();
   const c=document.getElementById('entries-container');
   updateSelUI();
+  // データがない場合はFirebaseから再取得を試みる
+  if(!entries.length && currentUser){
+    c.innerHTML=`<div class="no-data"><div class="no-data-icon">🔄</div><div class="no-data-text">読み込み中...</div></div>`;
+    fsGetAll(COLL_ENTRIES).then(fe=>{
+      if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); renderEntries(); }
+    }).catch(()=>{});
+    return;
+  }
   if(!filtered.length){
     const total=entries.filter(e=>canViewEntry(currentUser,e)).length;
-    c.innerHTML=`<div class="no-data"><div class="no-data-icon">📁</div><div class="no-data-text">
-      ${total>0?'フィルターを変えると'+total+'件の記録があります。<br>「リセット」ボタンを押してください。':'まだ記録がありません。<br>日誌入力から記録を追加してください。'}
-      <br><br><button class="btn-secondary" onclick="clearFilters();cvFilter={year:null,staff:null};renderYearTree();renderEntries();">🔄 全件表示</button>
-    </div></div>`;
+    if(total>0){
+      // 現在適用されているフィルタ条件を可視化
+      const fyDom=document.getElementById('filter-year')?.value;
+      const fssDom=document.getElementById('filter-staff-search')?.value;
+      const fmDom=document.getElementById('filter-month')?.value;
+      const fcDom=document.getElementById('filter-confirm')?.value;
+      const conds=[];
+      if(fyDom||cvFilter.year) conds.push(`年度=${fyDom||cvFilter.year}年度`);
+      if(fssDom||cvFilter.staff) conds.push(`職員=${fssDom||cvFilter.staff}`);
+      if(fmDom) conds.push(`月=${fmDom}`);
+      if(fcDom==='confirmed') conds.push('確認状況=確認済みのみ');
+      else if(fcDom==='unconfirmed') conds.push('確認状況=未確認のみ');
+      const condText=conds.length?`<div style="font-size:12px;color:var(--warm-gray);margin-top:8px;">適用中のフィルタ：<strong>${conds.join(' / ')}</strong></div>`:'';
+      // 全体には記録があるのに、フィルタで0件になっている → 自動的にフィルタリセット案内
+      c.innerHTML=`<div class="no-data" style="background:#fff8e1;border:2px solid var(--sun);">
+        <div class="no-data-icon">🔍</div>
+        <div class="no-data-text">
+          現在のフィルタでは記録が0件です。<br>
+          全体には<strong>${total}件</strong>の記録があります。
+          ${condText}
+          <br><br>
+          <button class="btn-primary" onclick="clearFilters();cvFilter={year:null,staff:null};syncFiltersToDom();renderYearTree();renderYearTabs();renderEntries();">
+            🔄 フィルタを解除して全件表示
+          </button>
+        </div>
+      </div>`;
+    } else {
+      c.innerHTML=`<div class="no-data"><div class="no-data-icon">📁</div><div class="no-data-text">
+        まだ記録がありません。<br>日誌入力から記録を追加してください。
+      </div></div>`;
+    }
     return;
   }
   const isPC=window.innerWidth>=769;
-  if(isPC&&viewMode==='table'){
-    c.innerHTML=renderEntriesTable(filtered);
-  } else if(isPC&&viewMode==='weekly'){
-    c.innerHTML=renderEntriesWeekly(filtered);
-  } else {
-    c.innerHTML=filtered.map(e=>renderEntryCard(e)).join('');
+  try{
+    if(isPC&&viewMode==='table'){
+      c.innerHTML=renderEntriesTable(filtered);
+    } else if(isPC&&viewMode==='weekly'){
+      c.innerHTML=renderEntriesWeekly(filtered);
+    } else {
+      // カード描画は1件ごとに try-catch して、1件のエラーで全体が止まらないようにする
+      c.innerHTML=filtered.map(e=>{
+        try{ return renderEntryCard(e); }
+        catch(err){
+          console.error('renderEntryCard error for entry id='+e.id, err, e);
+          return `<div class="entry-card unconfirmed" style="background:#fff0f0;">
+            <div class="entry-card-header">
+              <div class="entry-meta">
+                <span class="entry-date">⚠️ 表示エラー</span>
+                <span class="badge badge-sage">${e.staff||'?'}</span>
+                <span class="badge badge-year">${e.fiscalYear||'?'}年度</span>
+                <span style="font-size:11px;">日付: ${e.date||'?'}</span>
+              </div>
+            </div>
+            <div class="entry-body" style="padding:14px;font-size:12px;color:#a04040;">
+              この記録の表示中にエラーが発生しました（id: ${e.id}）。<br>
+              ブラウザの開発者ツール(F12)のコンソールでエラー内容を確認してください。
+            </div>
+          </div>`;
+        }
+      }).join('');
+    }
+  }catch(err){
+    console.error('renderEntries error:', err);
+    c.innerHTML=`<div class="no-data" style="background:#fff0f0;border:2px solid var(--danger);">
+      <div class="no-data-icon">⚠️</div>
+      <div class="no-data-text">
+        表示中にエラーが発生しました。<br>
+        F12キーでブラウザの開発者ツールを開き、コンソールタブのエラーメッセージをご確認ください。<br><br>
+        <code style="font-size:11px;background:#fff;padding:6px 10px;border-radius:6px;display:inline-block;">${esc(String(err.message||err))}</code>
+      </div>
+    </div>`;
   }
 }
 
@@ -2127,15 +2413,20 @@ async function deleteEntry(id){
 // CHECKBOX / SELECT
 // ==================================================
 function toggleSelectAll(){
-  const all=document.getElementById('select-all').checked;
-  document.querySelectorAll('.echeck').forEach(c=>c.checked=all);
+  const allCard=document.getElementById('select-all');
+  const allTbl=document.getElementById('tbl-select-all');
+  const checked=(allCard?.checked||allTbl?.checked)||false;
+  document.querySelectorAll('.echeck').forEach(c=>c.checked=checked);
   updateSelUI();
 }
 function updateSelUI(){
   const checks=document.querySelectorAll('.echeck');
   const checked=document.querySelectorAll('.echeck:checked');
-  const all=document.getElementById('select-all');
-  if(all) all.checked=checks.length>0&&checked.length===checks.length;
+  // カード・テーブル両方の全選択チェックボックスを同期
+  ['select-all','tbl-select-all'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.checked=checks.length>0&&checked.length===checks.length;
+  });
   const cnt=document.getElementById('selected-count');
   if(cnt) cnt.textContent=checked.length>0?`${checked.length}件選択中`:'';
   const pb=document.getElementById('print-btn');
@@ -2381,22 +2672,25 @@ function updatePcNav(view){
 }
 
 function renderYearTabs(){
-  const bar=document.getElementById('year-tab-bar');
+  // 古いタブバー（非表示）
+  const oldBar=document.getElementById('year-tab-bar');
+  if(oldBar) oldBar.style.display='none';
+  // 新しいentries内タブ
+  const bar=document.getElementById('year-tabs-pc');
   if(!bar) return;
-  // PCのみ表示
   if(window.innerWidth<769){ bar.style.display='none'; return; }
   const years=getYears();
-  if(!years.length){ bar.style.display='none'; return; }
-  bar.style.display='flex';
   const activeYear=cvFilter.year;
+  bar.style.display='flex';
   bar.innerHTML=
     `<button class="year-tab ${!activeYear?'active':''}" onclick="setYearFilter(null)">📋 全年度</button>`+
-    years.map(y=>`<button class="year-tab ${y===activeYear?'active':''}" onclick="setYearFilter(${y})">${y}年度</button>`).join('');
+    (years.length?years.map(y=>`<button class="year-tab ${y===activeYear?'active':''}" onclick="setYearFilter(${y})">${y}年度</button>`).join(''):'');
 }
 
 function setYearFilter(year){
   cvFilter.year=year;
   cvFilter.staff=null;
+  syncFiltersToDom();
   renderYearTabs();
   renderYearTree();
   if(currentView==='entries') renderEntries();
@@ -2404,6 +2698,13 @@ function setYearFilter(year){
   populatePcFilters();
 }
 
+function populateYearSelect(){
+  const sel=document.getElementById('filter-year');
+  if(!sel) return;
+  const cur=sel.value;
+  const years=getYears();
+  sel.innerHTML='<option value="">全年度</option>'+years.map(y=>`<option value="${y}" ${String(y)===cur?'selected':''}>${y}年度</option>`).join('');
+}
 function populateStaffSearchSelect(){
   const sel=document.getElementById('filter-staff-search');
   if(!sel) return;
@@ -2413,13 +2714,10 @@ function populateStaffSearchSelect(){
 }
 
 function populatePcFilters(){
-  const ysel=document.getElementById('filter-year');
-  const ssel=document.getElementById('filter-staff-select');
-  if(!ysel||!ssel) return;
-  const curY=ysel.value, curS=ssel.value;
-  ysel.innerHTML='<option value="">全年度</option>'+getYears().map(y=>`<option value="${y}" ${y==curY?'selected':''}>${y}年度</option>`).join('');
-  const staffOpts=[...new Set(entries.filter(e=>canViewEntry(currentUser,e)).map(e=>e.staff))].sort();
-  ssel.innerHTML='<option value="">全員</option>'+staffOpts.map(s=>`<option value="${s}" ${s===curS?'selected':''}>${s}</option>`).join('');
+  // 旧コードでは filter-staff-select という存在しない要素を参照して早期returnしていた
+  // populateYearSelect と populateStaffSearchSelect を呼ぶことで filter-year/filter-staff-search を更新
+  populateYearSelect();
+  if(isAdmin(currentUser)) populateStaffSearchSelect();
 }
 
 function updatePcAdminNav(){
@@ -2448,6 +2746,7 @@ function renderEntriesTable(filtered){
     const d=new Date(e.date);
     const days=['日','月','火','水','木','金','土'];
     return `<tr class="${confirmed?'confirmed':'unconfirmed'}">
+      <td style="text-align:center;"><input type="checkbox" class="echeck" data-id="${e.id}" onchange="updateSelUI()" style="width:auto;cursor:pointer;"></td>
       <td class="td-date">${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:11px;color:var(--warm-gray)">${days[d.getDay()]}</span></td>
       <td class="td-staff"><span class="badge badge-sage">${e.staff}</span><br><span style="font-size:11px;color:var(--warm-gray)">${wx}${e.weather}</span></td>
       <td><div class="cell-truncate">${esc(e.weeklyGoal)||'—'}</div></td>
@@ -2467,6 +2766,7 @@ function renderEntriesTable(filtered){
   return `<div class="entry-table-wrap">
     <table class="entry-table">
       <thead><tr>
+        <th style="width:36px;"><input type="checkbox" id="tbl-select-all" onchange="toggleSelectAll()" style="width:auto;cursor:pointer;"></th>
         <th>日付</th><th>職員・天気</th><th>週のねらい</th>
         <th>活動内容</th><th>保育者援助・気づき</th>
         <th>振り返り</th><th>エピソード</th><th>確認</th>
@@ -2607,13 +2907,23 @@ async function pollData(){
 }
 function startListeners(){
   stopListeners();
-  // 初回ポーリング：完了後にビューを再描画
+  // まずlocalStorageのデータで即時描画
+  renderYearTree();
+  renderYearTabs();
+  if(currentView==='entries') renderEntries();
+  if(currentView==='notices') renderNotices();
+  populateYearSelect();
+  if(isAdmin(currentUser)) populateStaffSearchSelect();
+  // Firebaseと非同期同期（失敗してもOK）
   pollData().then(()=>{
-    if(currentView==='entries'){ renderEntries(); renderYearTabs(); }
-    if(currentView==='notices') renderNotices();
     renderYearTree();
     renderYearTabs();
-    populatePcFilters();
+    if(currentView==='entries'){
+      renderEntries();
+      populateYearSelect();
+      if(isAdmin(currentUser)) populateStaffSearchSelect();
+    }
+    if(currentView==='notices') renderNotices();
   });
   pollInterval=setInterval(pollData,8000);
 }
@@ -2624,7 +2934,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260506-011';
+const APP_VERSION = '20260506-014';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
@@ -2650,6 +2960,8 @@ function forceReload() {
 
 async function checkForUpdate() {
   if(!navigator.onLine) return;
+  // file://プロトコルではfetchがCORSでブロックされるためスキップ
+  if(location.protocol==='file:') return;
   try {
     const url = location.pathname + '?_v=' + Date.now();
     const res = await fetch(url, {cache:'no-store', method:'GET'});
@@ -2864,8 +3176,6 @@ function renderNotices(){
     band.style.backgroundPosition='center top';
   }
 })();
-
-init();
 
 init();
 </script>
