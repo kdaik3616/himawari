@@ -1088,7 +1088,33 @@ select{
     width:45% !important;
   }
 }
-  
+
+ /* PCでPINをテキスト入力欄から入力 */
+#pin-text-input{display:none;}
+@media(min-width:769px){
+  .login-box.pin-mode .pin-grid{display:none !important;}
+  .login-box.pin-mode #pin-text-input{
+    display:block;
+    width:100%;
+    padding:18px 20px;
+    margin-top:8px;
+    border:2px solid var(--border);
+    border-radius:14px;
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-size:28px;
+    text-align:center;
+    letter-spacing:0.6em;
+    background:var(--cream);
+    color:var(--text);
+    transition:border-color 0.2s,box-shadow 0.2s;
+  }
+  .login-box.pin-mode #pin-text-input:focus{
+    outline:none;
+    border-color:var(--sun);
+    box-shadow:0 0 0 3px rgba(245,197,24,0.2);
+    background:var(--white);
+  }
+}
 </style>
 </head>
 <body>
