@@ -3207,6 +3207,29 @@ function renderNotices(){
 })();
 
 init();
+
+  // PCのテキスト入力からPIN処理へ繋ぐ
+(function(){
+  const input = document.getElementById('pin-text-input');
+  if(!input) return;
+  input.addEventListener('input', function(){
+    const cleaned = this.value.replace(/\D/g, '').slice(0, 4);
+    this.value = cleaned;
+    if(typeof pinClear === 'function') pinClear();
+    for(const digit of cleaned){
+      if(typeof pinInput === 'function') pinInput(digit);
+    }
+  });
+  const loginBox = document.querySelector('.login-box');
+  if(loginBox){
+    new MutationObserver(() => {
+      if(loginBox.classList.contains('pin-mode') && window.innerWidth >= 769){
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
+      }
+    }).observe(loginBox, {attributes:true, attributeFilter:['class']});
+  }
+})();
 </script>
 </body>
 </html>
