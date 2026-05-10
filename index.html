@@ -1080,6 +1080,14 @@ select{
   
 /* 緑のフッター(年度パネル)を非表示にする */
 #year-panel{display:none !important;}
+
+/* PCログイン画面の写真エリアを広げる(25% → 45%) */
+@media(min-width:769px){
+  .login-header-band,
+  .login-box.pin-mode .login-header-band{
+    width:45% !important;
+  }
+}
   
 </style>
 </head>
