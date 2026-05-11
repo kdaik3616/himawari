@@ -3275,46 +3275,6 @@ init();
   }
 })();
 
-<!-- Excel ダウンロード モーダル -->
-<div id="excel-modal" class="excel-modal-overlay" style="display:none;" onclick="if(event.target===this)closeExcelModal()">
-  <div class="excel-modal">
-    <div class="excel-modal-header">
-      <h3>📊 Excelダウンロード</h3>
-      <button class="excel-modal-close" onclick="closeExcelModal()">×</button>
-    </div>
-    <div class="excel-modal-body">
-      <div class="field-group" style="margin-bottom:16px;">
-        <label class="field-label">📅 期間</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="date" id="excel-date-from">
-          <span>〜</span>
-          <input type="date" id="excel-date-to">
-        </div>
-      </div>
-      <div class="field-group" style="margin-bottom:16px;">
-        <label class="field-label">👥 担当者</label>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <button class="btn-sm btn-secondary" onclick="toggleAllStaff(true)">全員選択</button>
-          <button class="btn-sm btn-secondary" onclick="toggleAllStaff(false)">全員解除</button>
-        </div>
-        <div id="excel-staff-list"></div>
-      </div>
-      <div class="field-group" style="margin-bottom:18px;">
-        <label class="field-label">📄 出力形式</label>
-        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
-          <input type="radio" name="excel-format" value="single" checked>
-          <span>1枚のシートにまとめて出力</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
-          <input type="radio" name="excel-format" value="tabs">
-          <span>担当者ごとにシートを分ける</span>
-        </label>
-      </div>
-      <button class="btn-primary full" onclick="downloadExcel()">📊 ダウンロード</button>
-    </div>
-  </div>
-</div>
-
 // ===== Excel ダウンロード機能 =====
 function openExcelModal(){
   const today=new Date();
@@ -3417,5 +3377,46 @@ function setExcelColWidths(ws){
 }
 
 </script>
+
+<!-- Excel ダウンロード モーダル -->
+<div id="excel-modal" class="excel-modal-overlay" style="display:none;" onclick="if(event.target===this)closeExcelModal()">
+  <div class="excel-modal">
+    <div class="excel-modal-header">
+      <h3>📊 Excelダウンロード</h3>
+      <button class="excel-modal-close" onclick="closeExcelModal()">×</button>
+    </div>
+    <div class="excel-modal-body">
+      <div class="field-group" style="margin-bottom:16px;">
+        <label class="field-label">📅 期間</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="excel-date-from">
+          <span>〜</span>
+          <input type="date" id="excel-date-to">
+        </div>
+      </div>
+      <div class="field-group" style="margin-bottom:16px;">
+        <label class="field-label">👥 担当者</label>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button class="btn-sm btn-secondary" onclick="toggleAllStaff(true)">全員選択</button>
+          <button class="btn-sm btn-secondary" onclick="toggleAllStaff(false)">全員解除</button>
+        </div>
+        <div id="excel-staff-list"></div>
+      </div>
+      <div class="field-group" style="margin-bottom:18px;">
+        <label class="field-label">📄 出力形式</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+          <input type="radio" name="excel-format" value="single" checked>
+          <span>1枚のシートにまとめて出力</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+          <input type="radio" name="excel-format" value="tabs">
+          <span>担当者ごとにシートを分ける</span>
+        </label>
+      </div>
+      <button class="btn-primary full" onclick="downloadExcel()">📊 ダウンロード</button>
+    </div>
+  </div>
+</div>
+  
 </body>
 </html>
