@@ -1871,8 +1871,22 @@ async function init(){
   if(!users.length) users=[{id:'u1',name:'園長',role:'principal',pin:'1234'}];
   renderLoginUsers();
   setDefaultDate();
+  tryAutoLogin();  
 }
-
+function tryAutoLogin(){
+  try{
+    const saved = localStorage.getItem('ls_currentUser');
+    if(!saved) return;
+    const savedUser = JSON.parse(saved);
+    const existingUser = users.find(u => u.id === savedUser.id);
+    if(existingUser){
+      currentUser = existingUser;
+      document.querySelector('.login-box')?.classList.remove('pin-mode');
+      document.body.classList.add('logged-in');
+      onLogin();
+    }
+  }catch(e){ console.warn('Auto login error:', e); }
+}
 function loadLocal(){
   try{
     // 新キー → 旧キーの順で検索
@@ -1884,6 +1898,7 @@ function loadLocal(){
           ||localStorage.getItem('hoiku_import_entries');
     let n=localStorage.getItem('ls_notices')
           ||localStorage.getItem('hoiku-notices-v1');
+    let h=localStorage.getItem('ls_homediary');
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
@@ -1896,6 +1911,7 @@ function saveLocal(){
     localStorage.setItem('ls_users', JSON.stringify(users));
     localStorage.setItem('ls_entries', JSON.stringify(entries));
     localStorage.setItem('ls_notices', JSON.stringify(notices));
+    localStorage.setItem('ls_homediary', JSON.stringify(homeDiaryEntries));
   }catch(_){}
 }
 
@@ -2008,6 +2024,7 @@ function checkPin(){
 
 function logout(){
   currentUser=null;pinBuffer='';loginSelectedUser=null;
+  localStorage.removeItem('ls_currentUser');
   document.querySelector('.login-box')?.classList.remove('pin-mode');
   document.body.classList.remove('logged-in');
   document.body.classList.remove('admin-user');
