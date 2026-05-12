@@ -537,13 +537,6 @@ select{
 /* ====== PRINT ====== */
 #print-area{display:none;}
 @media print{
-  html,body{
-  width:297mm!important;
-  margin:0!important;
-  padding:0!important;
-  -webkit-print-color-adjust:exact;
-  print-color-adjust:exact;
-  }
   @page{size:A4 landscape;margin:8mm;}
   body *{visibility:hidden!important;}
   #print-area,#print-area *{visibility:visible!important;}
