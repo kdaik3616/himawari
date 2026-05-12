@@ -1220,7 +1220,22 @@ select{
     filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));
   }
 }
-  
+.hd-duty-chip{
+  display:inline-flex;align-items:center;
+  padding:6px 14px;
+  border:2px solid #ccc;border-radius:20px;
+  cursor:pointer;font-size:13px;
+  background:white;transition:all 0.2s;
+  user-select:none;
+}
+.hd-duty-chip input{display:none;}
+.hd-duty-chip:hover{background:#f9f9f9;border-color:#aaa;}
+.hd-duty-chip.selected{
+  background:var(--green-light);
+  border-color:var(--green);
+  color:var(--green-dark);
+  font-weight:bold;
+}  
 </style>
 </head>
 <body>
