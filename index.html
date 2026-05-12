@@ -2028,8 +2028,8 @@ function renderBottomNav(){
   const inner=document.getElementById('bnav-inner');
   if(!inner)return;
   const tabs=isAdmin(currentUser)
-    ?[{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'files',icon:'📁',label:'年度別'},{id:'users',icon:'👥',label:'管理'},{id:'settings',icon:'⚙️',label:'設定'},{id:'homediary',icon:'📓',label:'ホーム日誌'}]
-    :[{id:'input',icon:'✏️',label:'入力'},{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'settings',icon:'⚙️',label:'設定'},{id:'homediary',icon:'📓',label:'ホーム日誌'}];
+    ?[{id:'entries',icon:'📋',label:'記録'},{id:'homediary',icon:'📓',label:'ホーム日誌'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'files',icon:'📁',label:'年度別'},{id:'users',icon:'👥',label:'管理'},{id:'settings',icon:'⚙️',label:'設定'}]
+    :[{id:'input',icon:'✏️',label:'入力'},{id:'entries',icon:'📋',label:'記録'},{id:'homediary',icon:'📓',label:'ホーム日誌'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'settings',icon:'⚙️',label:'設定'}];
   inner.innerHTML=tabs.map(t=>`
     <button class="bnav-btn" id="bnav-${t.id}" onclick="bnavTap('${t.id}')">
       <div class="bnav-icon-wrap" style="position:relative;">
@@ -3769,14 +3769,17 @@ function hdRenderDutySelect() {
   const wrap = document.getElementById('hd-duty-wrap');
   if (!wrap) return;
   wrap.innerHTML = users.map(u => `
-    <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
-      border:1px solid #ccc;border-radius:16px;cursor:pointer;font-size:13px;
-      background:white;transition:all 0.15s;" 
-      onclick="this.classList.toggle('hd-duty-selected');this.style.background=this.classList.contains('hd-duty-selected')?'var(--green-light)':'white';this.style.borderColor=this.classList.contains('hd-duty-selected')?'var(--green)':'#ccc';">
-      <input type="checkbox" value="${esc(u.name)}" class="hd-duty-check" style="display:none;">
-      ${esc(u.name)}<span style="font-size:11px;color:#888;margin-left:2px;">${esc(u.role||'')}</span>
+    <label class="hd-duty-chip">
+      <input type="checkbox" value="${esc(u.name)}" class="hd-duty-check" onchange="hdToggleDutyChip(this)">
+      <span>${esc(u.name)}</span>
     </label>
   `).join('');
+}
+
+function hdToggleDutyChip(cb) {
+  const label = cb.closest('label');
+  if (cb.checked) label.classList.add('selected');
+  else label.classList.remove('selected');
 }
 </script>
 
