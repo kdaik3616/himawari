@@ -1603,27 +1603,64 @@ function fromFSVal(v){
 function fromFSFields(fields){ const o={}; for(const[k,v] of Object.entries(fields)) o[k]=fromFSVal(v); return o; }
 function fromFSDoc(doc){ return doc.fields?fromFSFields(doc.fields):{}; }
 
+// ===== Firebase 匿名認証トークン管理 =====
+let _fbAuthToken=null;
+let _fbAuthExpiry=0;
+
+async function getFbAuthToken(){
+  if(_fbAuthToken&&Date.now()<_fbAuthExpiry) return _fbAuthToken;
+  try{
+    const r=await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FB_KEY}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({returnSecureToken:true})}
+    );
+    const d=await r.json();
+    if(d.idToken){
+      _fbAuthToken=d.idToken;
+      _fbAuthExpiry=Date.now()+((Number(d.expiresIn)||3600)*1000)-60000;
+      return _fbAuthToken;
+    }
+  }catch(e){console.warn('Firebase Auth error:',e);}
+  return null;
+}
+
 async function fsGetAll(coll){
   try{
-    const r=await fetch(`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=500`);
+    const token=await getFbAuthToken();
+    const headers=token?{'Authorization':`Bearer ${token}`}:{};
+    const r=await fetch(`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=500`,{headers});
     const d=await r.json();
     return (d.documents||[]).map(fromFSDoc);
-  }catch(e){ console.warn('fsGetAll error:',e); return []; }
+  }catch(e){console.warn('fsGetAll error:',e);return[];}
 }
+
 async function fsSet(coll,docId,data){
+  const token=await getFbAuthToken();
+  const headers={'Content-Type':'application/json'};
+  if(token) headers['Authorization']=`Bearer ${token}`;
   await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{
-    method:'PATCH',headers:{'Content-Type':'application/json'},
+    method:'PATCH',headers,
     body:JSON.stringify({fields:toFSFields(data)})
   });
 }
+
 async function fsDelete(coll,docId){
-  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{method:'DELETE'});
+  const token=await getFbAuthToken();
+  const headers={};
+  if(token) headers['Authorization']=`Bearer ${token}`;
+  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{
+    method:'DELETE',headers
+  });
 }
+
 async function fsUpdateField(coll,docId,fieldName,value){
-  // フィールド単体更新（updateMask使用）
+  const token=await getFbAuthToken();
+  const headers={'Content-Type':'application/json'};
+  if(token) headers['Authorization']=`Bearer ${token}`;
   const mask=`updateMask.fieldPaths=${fieldName}`;
   await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}&${mask}`,{
-    method:'PATCH',headers:{'Content-Type':'application/json'},
+    method:'PATCH',headers,
     body:JSON.stringify({fields:{[fieldName]:toFSVal(value)}})
   });
 }
