@@ -1495,6 +1495,7 @@ select{
                     <label class="range-opt" onclick="toggleRange(this,'senior')"><span class="range-check">✓</span> 年長</label>
                     <label class="range-opt" onclick="toggleRange(this,'middle')"><span class="range-check">✓</span> 年中</label>
                     <label class="range-opt" onclick="toggleRange(this,'junior')"><span class="range-check">✓</span> 年少</label>
+                    <label class="range-opt" onclick="toggleRange(this,'sesami')"><span class="range-check">✓</span> セサミ</label>
                   </div>
                   <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">園長・副園長・主任・副主任・フリーは全区分を閲覧できます</div>
                 </div>
@@ -3241,7 +3242,7 @@ function updateNoticeBadge(){
   }
 }
 
-const RANGE_LABEL={'all':'全体','senior':'年長','middle':'年中','junior':'年少'};
+const RANGE_LABEL={'all':'全体','senior':'年長','middle':'年中','junior':'年少','sesame':'セサミ'};
 
 function buildNoticeCard(n){
   const u=currentUser;
