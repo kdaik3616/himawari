@@ -3175,8 +3175,12 @@ function renderEntriesWeekly(filtered){
 // ==================================================
 async function pollData(){
   try{
-    const [nu,ne,nn]=await Promise.all([fsGetAll(COLL_USERS),fsGetAll(COLL_ENTRIES),fsGetAll(COLL_NOTICES)]);
-
+    const [nu,ne,nn,nh]=await Promise.all([
+      fsGetAll(COLL_USERS),
+      fsGetAll(COLL_ENTRIES),
+      fsGetAll(COLL_NOTICES),
+      fsGetAll(COLL_HOMEDIARY)  // ← 追加
+    ]);
     // Firebaseが空でもローカルデータを消さない（接続エラー対策）
     if(nu.length>0){
       if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
@@ -3203,6 +3207,15 @@ async function pollData(){
         notices=nn;
         updateNoticeBadge();
         if(currentView==='notices') renderNotices();
+      }
+    }
+    // ホーム日誌の同期 ← 追加
+    if(nh.length>0){
+      nh.sort((a,b)=>b.date.localeCompare(a.date));
+      if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
+        homeDiaryEntries=nh;
+        saveLocal();
+        if(currentView==='homediary') renderHomeDiaryList();
       }
     }
   }catch(e){ console.warn('poll error:',e); }
