@@ -601,6 +601,9 @@ select{
     flex: 1 0 calc(50% - 8px);
     min-width: 130px;
   }
+  .hd-headcount-row > div:first-child {
+    flex: 1 0 100% !important;
+  }
   .hd-headcount-row input {
     width: 100% !important;
     height: 44px;
@@ -1475,16 +1478,18 @@ select{
       <div class="card" style="padding:16px;">
         <h3 style="margin-bottom:12px;">📓 ホーム日誌入力</h3>
 
-        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;align-items:flex-end;">
-          <div><label class="form-label">日付</label><input type="date" id="hd-date" style="width:145px;"></div>
-          <div><label class="form-label">天気</label>
-            <select id="hd-weather">
-              <option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>晴時々曇</option>
-            </select>
-          </div>
-          <div><label class="form-label">早番</label><input type="text" id="hd-early" placeholder="氏名" style="width:100px;"></div>
-          <div><label class="form-label">遅番</label><input type="text" id="hd-late" placeholder="氏名" style="width:100px;"></div>
-        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-end;">
+  <div style="flex:1;"><label class="form-label">日付</label><input type="date" id="hd-date" style="width:100%;"></div>
+  <div style="flex:1;"><label class="form-label">天気</label>
+    <select id="hd-weather" style="width:100%;">
+      <option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>晴時々曇</option>
+    </select>
+  </div>
+</div>
+<div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-end;">
+  <div style="flex:1;"><label class="form-label">早番</label><input type="text" id="hd-early" placeholder="氏名" style="width:100%;"></div>
+  <div style="flex:1;"><label class="form-label">遅番</label><input type="text" id="hd-late" placeholder="氏名" style="width:100%;"></div>
+</div>
 
         <h4 style="margin-bottom:8px;">活動記録</h4>
         <div style="overflow-x:auto;">
