@@ -1406,6 +1406,100 @@ select{
           <div style="height:32px"></div>
         </div>
 
+        <div class="view" id="view-homediary">
+  <div style="padding:16px;">
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="btn-primary" id="hd-tab-input" onclick="hdShowTab('input')">✏️ 入力</button>
+      <button class="btn-secondary" id="hd-tab-list" onclick="hdShowTab('list')">📋 一覧</button>
+    </div>
+
+    <!-- 入力フォーム -->
+    <div id="hd-input-pane">
+      <div class="card" style="padding:16px;">
+        <h3 style="margin-bottom:12px;">📓 ホーム日誌入力</h3>
+
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;align-items:flex-end;">
+          <div><label class="form-label">日付</label><input type="date" id="hd-date" style="width:145px;"></div>
+          <div><label class="form-label">天気</label>
+            <select id="hd-weather">
+              <option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>晴時々曇</option>
+            </select>
+          </div>
+          <div><label class="form-label">早番</label><input type="text" id="hd-early" placeholder="氏名" style="width:100px;"></div>
+          <div><label class="form-label">遅番</label><input type="text" id="hd-late" placeholder="氏名" style="width:100px;"></div>
+        </div>
+
+        <h4 style="margin-bottom:8px;">活動記録</h4>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #ccc;padding:6px;width:55px;">時間</th>
+                <th style="border:1px solid #ccc;padding:6px;">年少</th>
+                <th style="border:1px solid #ccc;padding:6px;">年中</th>
+                <th style="border:1px solid #ccc;padding:6px;">年長</th>
+              </tr>
+            </thead>
+            <tbody id="hd-activity-body"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label class="form-label">🍪 おやつのメニュー</label>
+          <input type="text" id="hd-snack" placeholder="例：ごへいもち・お茶" style="width:100%;">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div>
+            <label class="form-label">担当（カンマ区切り）</label>
+            <input type="text" id="hd-duty" placeholder="例：西村,田村,浅川" style="width:100%;">
+          </div>
+          <div>
+            <label class="form-label">共有事項</label>
+            <textarea id="hd-shared" rows="3" style="width:100%;"></textarea>
+          </div>
+          <div>
+            <label class="form-label">園から</label>
+            <textarea id="hd-from-school" rows="3" style="width:100%;"></textarea>
+          </div>
+          <div>
+            <label class="form-label">保護者から</label>
+            <textarea id="hd-from-parents" rows="3" style="width:100%;"></textarea>
+          </div>
+          <div>
+            <label class="form-label">忘れ物・探し物</label>
+            <textarea id="hd-lost" rows="2" style="width:100%;"></textarea>
+          </div>
+          <div>
+            <label class="form-label">👧 子どもたちの様子</label>
+            <textarea id="hd-children-notes" rows="3" style="width:100%;"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label class="form-label" style="display:block;margin-bottom:6px;">全体人数</label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+            <div><label style="font-size:12px;">合計</label><br><input type="text" id="hd-total" placeholder="64/96" style="width:70px;"></div>
+            <div><label style="font-size:12px;">15:30</label><br><input type="number" id="hd-1530" style="width:55px;"></div>
+            <div><label style="font-size:12px;">16:30</label><br><input type="number" id="hd-1630" style="width:55px;"></div>
+            <div><label style="font-size:12px;">17:30</label><br><input type="number" id="hd-1730" style="width:55px;"></div>
+            <div><label style="font-size:12px;">18:30</label><br><input type="number" id="hd-1830" style="width:55px;"></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;margin-top:20px;">
+          <button class="btn-primary" onclick="saveHomeDiaryEntry()">💾 保存する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 一覧 -->
+    <div id="hd-list-pane" style="display:none;">
+      <div id="hd-list-content"></div>
+    </div>
+  </div>
+</div>
+        
         <!-- ENTRIES VIEW -->
         <div id="view-entries" class="view">
           <!-- 年度タブ（PCのみ表示） -->
