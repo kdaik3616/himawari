@@ -1714,6 +1714,7 @@ const FB_BASE = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/data
 const COLL_USERS   = 'h_users';
 const COLL_ENTRIES = 'h_entries';
 const COLL_NOTICES = 'h_notices';
+const COLL_HOMEDIARY = 'homediary';
 let pollInterval = null;
 
 // Firestore型変換
@@ -3644,8 +3645,12 @@ function saveHomeDiaryEntry() {
       senior: document.getElementById(`hd-${key}-senior`)?.value||''
     };
   });
-  homeDiaryEntries.push({
-    id: Date.now(),
+
+  const existing = homeDiaryEntries.find(e=>e.date===date);
+  const docId = String(existing?.id || Date.now());
+
+  const entry = {
+    id: Number(docId),
     date,
     weekday: weekdays[new Date(date).getDay()],
     weather:       document.getElementById('hd-weather').value,
@@ -3653,8 +3658,7 @@ function saveHomeDiaryEntry() {
     lateStaff:     document.getElementById('hd-late').value,
     activities,
     snackMenu:     document.getElementById('hd-snack').value,
-    dutyStaff: [...document.querySelectorAll('.hd-duty-check:checked')]
-             .map(cb => cb.value).join(','),
+    dutyStaff:     [...document.querySelectorAll('.hd-duty-check:checked')].map(cb=>cb.value).join(','),
     sharedInfo:    document.getElementById('hd-shared').value,
     fromSchool:    document.getElementById('hd-from-school').value,
     fromParents:   document.getElementById('hd-from-parents').value,
@@ -3666,8 +3670,17 @@ function saveHomeDiaryEntry() {
     headcount1730: document.getElementById('hd-1730').value,
     headcount1830: document.getElementById('hd-1830').value,
     savedAt: new Date().toISOString()
-  });
+  };
+
+  // ローカルに即時保存
+  homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==entry.id);
+  homeDiaryEntries.push(entry);
+  homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
+
+  // Firebaseにも非同期で同期
+  fsSet(COLL_HOMEDIARY, String(entry.id), entry).catch(e=>console.warn('Firebase save error:',e));
+
   alert('💾 保存しました！');
   hdShowTab('list');
 }
@@ -3708,6 +3721,10 @@ function deleteHomeDiary(id) {
   homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==id);
   saveLocal();
   renderHomeDiaryList();
+  // Firebaseからも削除
+  if(typeof fsDelete==='function'){
+    fsDelete(COLL_HOMEDIARY, String(id)).catch(e=>console.warn('Firebase delete error:',e));
+  }
 }
 
 function printHomeDiary(id) {
