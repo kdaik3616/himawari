@@ -538,16 +538,10 @@ select{
 #print-area{display:none;}
 @media print{
   @page{size:A4 landscape;margin:8mm;}
-  html,body{              /* ← @media printの中 */
-    width:297mm!important;
-    margin:0!important;
-    padding:0!important;
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
+  html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   body *{visibility:hidden!important;}
   #print-area,#print-area *{visibility:visible!important;}
-  #print-area{display:block!important;position:absolute;top:0;left:0;width:297mm;z-index:9999;background:white;}
+  #print-area{display:block!important;width:100%;background:white;box-sizing:border-box;}
   .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
   .print-page:last-child{page-break-after:avoid;}
   .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:180mm;}
