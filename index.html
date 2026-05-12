@@ -2434,10 +2434,14 @@ function renderEntryCard(e){
     </div>`;
 
 const canPrint = isAdmin(currentUser) || e.staff === currentUser.name;
-const adminActions = canPrint ? `
-    <button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button>
-` : '';
-    <button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`:'';
+const adminActions = `
+    ${isAdmin(currentUser) || e.staff === currentUser.name
+        ? `<button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button>`
+        : ''}
+    ${isAdmin(currentUser)
+        ? `<button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`
+        : ''}
+`;
   return `
   <div class="entry-card ${confirmed?'':'unconfirmed'}" id="card-${e.id}">
     <div class="entry-card-header">
