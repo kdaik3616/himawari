@@ -3559,7 +3559,173 @@ function setExcelColWidths(ws){
     {wch:20},{wch:30},{wch:30},{wch:40},{wch:30},{wch:50},{wch:20}
   ];
 }
+// ==================== HOME DIARY ====================
+let homeDiaryEntries = [];
+const HD_TIMES = ['14:00','15:00','16:00','17:00','18:00','19:00'];
 
+function hdInitActivityTable() {
+  const tbody = document.getElementById('hd-activity-body');
+  if (!tbody) return;
+  tbody.innerHTML = HD_TIMES.map(t => {
+    const key = t.replace(':','-');
+    return `<tr>
+      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
+      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-junior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
+      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-middle" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
+      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-senior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
+    </tr>`;
+  }).join('');
+}
+
+function hdShowTab(tab) {
+  document.getElementById('hd-input-pane').style.display = tab==='input' ? '' : 'none';
+  document.getElementById('hd-list-pane').style.display  = tab==='list'  ? '' : 'none';
+  document.getElementById('hd-tab-input').className = tab==='input' ? 'btn-primary' : 'btn-secondary';
+  document.getElementById('hd-tab-list').className  = tab==='list'  ? 'btn-primary' : 'btn-secondary';
+  if (tab==='list')  renderHomeDiaryList();
+  if (tab==='input') hdInitActivityTable();
+}
+
+function saveHomeDiaryEntry() {
+  const date = document.getElementById('hd-date').value;
+  if (!date) { alert('日付を入力してください'); return; }
+  const weekdays = ['日','月','火','水','木','金','土'];
+  const activities = {};
+  HD_TIMES.forEach(t => {
+    const key = t.replace(':','-');
+    activities[t] = {
+      junior: document.getElementById(`hd-${key}-junior`)?.value||'',
+      middle: document.getElementById(`hd-${key}-middle`)?.value||'',
+      senior: document.getElementById(`hd-${key}-senior`)?.value||''
+    };
+  });
+  homeDiaryEntries.push({
+    id: Date.now(),
+    date,
+    weekday: weekdays[new Date(date).getDay()],
+    weather:       document.getElementById('hd-weather').value,
+    earlyStaff:    document.getElementById('hd-early').value,
+    lateStaff:     document.getElementById('hd-late').value,
+    activities,
+    snackMenu:     document.getElementById('hd-snack').value,
+    dutyStaff:     document.getElementById('hd-duty').value,
+    sharedInfo:    document.getElementById('hd-shared').value,
+    fromSchool:    document.getElementById('hd-from-school').value,
+    fromParents:   document.getElementById('hd-from-parents').value,
+    lostItems:     document.getElementById('hd-lost').value,
+    childrenNotes: document.getElementById('hd-children-notes').value,
+    headcountTotal:document.getElementById('hd-total').value,
+    headcount1530: document.getElementById('hd-1530').value,
+    headcount1630: document.getElementById('hd-1630').value,
+    headcount1730: document.getElementById('hd-1730').value,
+    headcount1830: document.getElementById('hd-1830').value,
+    savedAt: new Date().toISOString()
+  });
+  saveLocal();
+  alert('💾 保存しました！');
+  hdShowTab('list');
+}
+
+function renderHomeDiaryList() {
+  const el = document.getElementById('hd-list-content');
+  if (!el) return;
+  if (!homeDiaryEntries.length) {
+    el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">まだ記録がありません</div>';
+    return;
+  }
+  const sorted = [...homeDiaryEntries].sort((a,b)=>b.date.localeCompare(a.date));
+  el.innerHTML = sorted.map(e=>`
+    <div class="entry-card" style="margin-bottom:12px;">
+      <div class="entry-card-header">
+        <div class="entry-meta">
+          <span class="entry-date">${fmtDate(e.date)}（${e.weekday}）</span>
+          <span class="badge badge-sage">${esc(e.weather)}</span>
+          ${e.earlyStaff?`<span style="font-size:12px;color:#e53;">早番:${esc(e.earlyStaff)}</span>`:''}
+          ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
+        </div>
+        <div class="entry-actions">
+          <button class="btn-secondary btn-sm" onclick="printHomeDiary(${e.id})">🖨</button>
+          ${isAdmin(currentUser)?`<button class="btn-danger btn-sm" onclick="deleteHomeDiary(${e.id})">削除</button>`:''}
+        </div>
+      </div>
+      <div class="entry-body" style="font-size:13px;">
+        ${e.snackMenu?`<div>🍪 おやつ：${esc(e.snackMenu)}</div>`:''}
+        ${e.childrenNotes?`<div style="margin-top:6px;">👧 ${esc(e.childrenNotes)}</div>`:''}
+        <div style="margin-top:6px;color:#888;font-size:11px;">全体人数: ${e.headcountTotal||'-'}</div>
+      </div>
+    </div>`).join('');
+}
+
+function deleteHomeDiary(id) {
+  if (!confirm('削除しますか？')) return;
+  homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==id);
+  saveLocal();
+  renderHomeDiaryList();
+}
+
+function printHomeDiary(id) {
+  const e = homeDiaryEntries.find(x=>x.id===id);
+  if (!e) return;
+  const d = new Date(e.date);
+  const reiwa = d.getFullYear()-2018;
+  const actRows = HD_TIMES.map(t=>{
+    const a=e.activities[t]||{};
+    return `<tr>
+      <td class="hdp-time">${t}</td>
+      <td class="hdp-cell">${(a.junior||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(a.middle||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(a.senior||'').replace(/\n/g,'<br>')}</td>
+    </tr>`;
+  }).join('');
+  const dutyHTML = (e.dutyStaff||'').split(',').filter(Boolean)
+    .map(n=>`<span class="hdp-duty-name">${esc(n.trim())}</span>`).join('');
+  document.getElementById('print-area').innerHTML=`
+    <div class="hdp-page">
+      <div class="hdp-header">
+        <span>令和${reiwa}年度</span>
+        <span>${d.getMonth()+1}月　${d.getDate()}日　${e.weekday}曜日</span>
+        <span>天気：${esc(e.weather)}</span>
+        <span style="color:#c00;">早番：${esc(e.earlyStaff||'')}</span>
+        <span style="color:#00c;">遅番：${esc(e.lateStaff||'')}</span>
+      </div>
+      <div class="hdp-body">
+        <div class="hdp-left">
+          <table class="hdp-table">
+            <thead>
+              <tr><th colspan="4" class="hdp-th-main">活動記録</th></tr>
+              <tr>
+                <th class="hdp-time">時間</th>
+                <th class="hdp-th">年少</th>
+                <th class="hdp-th">年中</th>
+                <th class="hdp-th">年長</th>
+              </tr>
+            </thead>
+            <tbody>${actRows}</tbody>
+          </table>
+          <div class="hdp-snack"><b>おやつの時間</b>　【メニュー】${esc(e.snackMenu||'')}</div>
+        </div>
+        <div class="hdp-right">
+          <div class="hdp-rs"><div class="hdp-rl">担当</div><div class="hdp-duty">${dutyHTML}</div></div>
+          <div class="hdp-rs"><div class="hdp-rl">共有事項</div><div class="hdp-rv">${(e.sharedInfo||'').replace(/\n/g,'<br>')}</div></div>
+          <div class="hdp-rs"><div class="hdp-rl">園から</div><div class="hdp-rv">${(e.fromSchool||'').replace(/\n/g,'<br>')}</div></div>
+          <div class="hdp-rs"><div class="hdp-rl">保護者から</div><div class="hdp-rv">${(e.fromParents||'').replace(/\n/g,'<br>')}</div></div>
+          <div class="hdp-rs"><div class="hdp-rl">忘れ物・探し物</div><div class="hdp-rv">${(e.lostItems||'').replace(/\n/g,'<br>')}</div></div>
+          <div class="hdp-rs hdp-rs-flex"><div class="hdp-rl">子どもたちの様子</div><div class="hdp-rv">${(e.childrenNotes||'').replace(/\n/g,'<br>')}</div></div>
+        </div>
+      </div>
+      <table class="hdp-count">
+        <tr><th>全体人数</th><th>15:30</th><th>16:30</th><th>17:30</th><th>18:30</th></tr>
+        <tr>
+          <td>${esc(e.headcountTotal||'')}</td>
+          <td>${esc(e.headcount1530||'')}</td>
+          <td>${esc(e.headcount1630||'')}</td>
+          <td>${esc(e.headcount1730||'')}</td>
+          <td>${esc(e.headcount1830||'')}</td>
+        </tr>
+      </table>
+    </div>`;
+  window.print();
+}
 </script>
 
 <!-- Excel ダウンロード モーダル -->
