@@ -2425,9 +2425,11 @@ function renderEntryCard(e){
       <div class="rfl">${label}</div>
       <div class="rfv ${val?'':'empty'}">${val?esc(val):'（記録なし）'}</div>
     </div>`;
-  const canPrint = isAdmin(currentUser) || e.staff === currentUser.name;
+
+const canPrint = isAdmin(currentUser) || e.staff === currentUser.name;
 const adminActions = canPrint ? `
-    <button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button>` : ``;
+    <button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button>
+` : '';
     <button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`:'';
   return `
   <div class="entry-card ${confirmed?'':'unconfirmed'}" id="card-${e.id}">
