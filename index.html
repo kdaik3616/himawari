@@ -571,25 +571,25 @@ select{
   .print-col-value{font-size:9pt;line-height:1.5;white-space:pre-wrap;}
 
   /* HOME DIARY PRINT */
-.hdp-page{font-family:'Noto Sans JP',sans-serif;font-size:9pt;width:100%;}
-.hdp-header{display:flex;gap:12mm;padding:2mm 0;border-bottom:1.5pt solid #000;margin-bottom:2mm;font-weight:bold;font-size:10pt;}
-.hdp-body{display:flex;gap:3mm;}
-.hdp-left{flex:0 0 63%;}
+.hdp-page{font-family:'Noto Sans JP',sans-serif;font-size:10pt;width:100%;height:194mm;display:flex;flex-direction:column;}
+.hdp-header{display:flex;gap:14mm;padding:3mm 2mm;border-bottom:2pt solid #000;margin-bottom:2mm;font-weight:bold;font-size:11pt;}
+.hdp-body{display:flex;gap:4mm;flex:1;}
+.hdp-left{flex:0 0 65%;display:flex;flex-direction:column;}
 .hdp-right{flex:1;border:1pt solid #000;display:flex;flex-direction:column;}
-.hdp-table{width:100%;border-collapse:collapse;}
-.hdp-th-main{border:1pt solid #000;padding:1mm 2mm;text-align:center;background:#f0f0f0;font-size:9pt;}
-.hdp-th{border:1pt solid #000;padding:1mm 2mm;text-align:center;background:#f9f9f9;font-size:8.5pt;}
-.hdp-time{border:1pt solid #000;padding:1mm 2mm;text-align:center;font-size:8pt;width:14mm;white-space:nowrap;}
-.hdp-cell{border:1pt solid #000;padding:1.5mm 2mm;vertical-align:top;font-size:8.5pt;min-height:18mm;}
-.hdp-snack{border:1pt solid #000;border-top:none;padding:2mm 3mm;font-size:9pt;background:#fffbe6;}
-.hdp-rs{border-bottom:1pt solid #000;padding:1.5mm 2mm;}
+.hdp-table{width:100%;border-collapse:collapse;flex:1;}
+.hdp-cell{border:1pt solid #000;padding:2mm 3mm;vertical-align:top;font-size:9pt;min-height:22mm;}
+.hdp-time{border:1pt solid #000;padding:2mm;text-align:center;font-size:9pt;width:16mm;white-space:nowrap;font-weight:bold;}
+.hdp-th-main{border:1pt solid #000;padding:2mm;text-align:center;background:#f0f0f0;font-size:10pt;font-weight:bold;}
+.hdp-th{border:1pt solid #000;padding:2mm;text-align:center;background:#f9f9f9;font-size:9.5pt;font-weight:bold;}
+.hdp-snack{border:1pt solid #000;border-top:none;padding:3mm;font-size:10pt;background:#fffbe6;font-weight:bold;}
+.hdp-rs{border-bottom:1pt solid #000;padding:2.5mm 3mm;}
 .hdp-rs-flex{flex:1;border-bottom:none;}
-.hdp-rl{font-size:7.5pt;color:#444;font-weight:bold;margin-bottom:1mm;}
-.hdp-rv{font-size:8.5pt;min-height:8mm;white-space:pre-wrap;}
-.hdp-duty{display:flex;flex-wrap:wrap;gap:3px;margin-top:1mm;}
-.hdp-duty-name{border:1pt solid #000;border-radius:50%;padding:1mm 2.5mm;font-size:8pt;}
-.hdp-count{border-collapse:collapse;width:55%;margin-top:2mm;margin-left:auto;}
-.hdp-count th,.hdp-count td{border:1pt solid #000;padding:1mm 4mm;text-align:center;font-size:9pt;}
+.hdp-rl{font-size:8.5pt;color:#444;font-weight:bold;margin-bottom:1.5mm;}
+.hdp-rv{font-size:9.5pt;min-height:12mm;white-space:pre-wrap;line-height:1.4;}
+.hdp-duty{display:flex;flex-wrap:wrap;gap:4px;margin-top:1.5mm;}
+.hdp-duty-name{border:1pt solid #000;border-radius:50%;padding:1.5mm 3.5mm;font-size:9pt;}
+.hdp-count{border-collapse:collapse;width:65%;margin-top:3mm;margin-left:auto;}
+.hdp-count th,.hdp-count td{border:1pt solid #000;padding:2mm 5mm;text-align:center;font-size:10pt;}
 .hdp-count th{background:#f0f0f0;font-weight:bold;}
 }
 
@@ -3684,7 +3684,7 @@ function renderHomeDiaryList() {
     <div class="entry-card" style="margin-bottom:12px;">
       <div class="entry-card-header">
         <div class="entry-meta">
-          <span class="entry-date">${fmtDate(e.date)}（${e.weekday}）</span>
+          <span class="entry-date">${fmtDate(e.date)}</span>
           <span class="badge badge-sage">${esc(e.weather)}</span>
           ${e.earlyStaff?`<span style="font-size:12px;color:#e53;">早番:${esc(e.earlyStaff)}</span>`:''}
           ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
@@ -3694,11 +3694,12 @@ function renderHomeDiaryList() {
           ${isAdmin(currentUser)?`<button class="btn-danger btn-sm" onclick="deleteHomeDiary(${e.id})">削除</button>`:''}
         </div>
       </div>
-      <div class="entry-body" style="font-size:13px;">
-        ${e.snackMenu?`<div>🍪 おやつ：${esc(e.snackMenu)}</div>`:''}
-        ${e.childrenNotes?`<div style="margin-top:6px;">👧 ${esc(e.childrenNotes)}</div>`:''}
-        <div style="margin-top:6px;color:#888;font-size:11px;">全体人数: ${e.headcountTotal||'-'}</div>
-      </div>
+     <div class="entry-body" style="font-size:13px;">
+  ${e.snackMenu?`<div>🍪 おやつ：${esc(e.snackMenu)}</div>`:''}
+  ${e.sharedInfo?`<div style="margin-top:8px;padding:8px;background:var(--sun-light);border-radius:6px;"><b>📋 共有事項</b><br>${esc(e.sharedInfo).replace(/\n/g,'<br>')}</div>`:''}
+  ${e.childrenNotes?`<div style="margin-top:8px;padding:8px;background:var(--green-light);border-radius:6px;"><b>👧 子どもたちの様子</b><br>${esc(e.childrenNotes).replace(/\n/g,'<br>')}</div>`:''}
+  <div style="margin-top:8px;color:#888;font-size:11px;">全体人数: ${e.headcountTotal||'-'}</div>
+</div>
     </div>`).join('');
 }
 
