@@ -1290,6 +1290,7 @@ select{
       <button class="app-header-nav-btn" id="pcnav-input" onclick="showView('input')">✏️ 日誌入力</button>
       <button class="app-header-nav-btn active" id="pcnav-entries" onclick="showView('entries')">📋 記録一覧</button>
       <button class="app-header-nav-btn" id="pcnav-files" onclick="showView('files')">📁 年度別ファイル</button>
+      <button class="app-header-nav-btn" id="pcnav-homediary" onclick="showView('homediary')">📓 ホーム日誌</button>
       <button class="app-header-nav-btn" id="pcnav-notices" onclick="showView('notices')">
         📢 お知らせ <span id="notice-badge-pc" style="display:none;background:var(--orange);color:white;border-radius:8px;padding:0 6px;font-size:10px;margin-left:2px;"></span>
       </button>
@@ -1309,6 +1310,7 @@ select{
         </div>
         <div class="sdivider"></div>
         <button class="snav-btn" id="nav-files" onclick="showView('files')">📁 年度別ファイル管理</button>
+        <button class="snav-btn" id="nav-homediary" onclick="showView('homediary')">📓 ホーム日誌</button>
         <span class="sidebar-section-label">📁 年度別クイックリンク</span>
         <div id="year-tree"></div>
         <div class="sdivider" id="admin-divider" style="display:none;"></div>
@@ -1909,8 +1911,8 @@ function renderBottomNav(){
   const inner=document.getElementById('bnav-inner');
   if(!inner)return;
   const tabs=isAdmin(currentUser)
-    ?[{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'files',icon:'📁',label:'年度別'},{id:'users',icon:'👥',label:'管理'},{id:'settings',icon:'⚙️',label:'設定'}]
-    :[{id:'input',icon:'✏️',label:'入力'},{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'settings',icon:'⚙️',label:'設定'}];
+    ?[{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'files',icon:'📁',label:'年度別'},{id:'users',icon:'👥',label:'管理'},{id:'settings',icon:'⚙️',label:'設定'},{id:'homediary',icon:'📓',label:'ホーム日誌'}]
+    :[{id:'input',icon:'✏️',label:'入力'},{id:'entries',icon:'📋',label:'記録'},{id:'notices',icon:'📢',label:'お知らせ'},{id:'settings',icon:'⚙️',label:'設定'},{id:'homediary',icon:'📓',label:'ホーム日誌'}];
   inner.innerHTML=tabs.map(t=>`
     <button class="bnav-btn" id="bnav-${t.id}" onclick="bnavTap('${t.id}')">
       <div class="bnav-icon-wrap" style="position:relative;">
