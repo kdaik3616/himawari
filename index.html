@@ -2269,7 +2269,8 @@ function showView(v){
     files:['📁 年度別ファイル管理','年度→職員→記録の順でドリルダウン'],
     notices:['📢 お知らせ','園内連絡・共有事項'],
     users:['ユーザー管理','PIN・権限の設定'],
-    settings:['設定','PINの変更・データ管理']
+    settings:['設定','PINの変更・データ管理'],
+    homediary:['📓 ホーム日誌','ホームの活動記録']
   };
   const t=titles[v]||['',''];
   const tt=document.getElementById('topbar-title');
@@ -2309,6 +2310,11 @@ function showView(v){
     if(ta) ta.innerHTML='';
     renderFilesView();
   }
+  if(v==='homediary'){
+  const ta=document.getElementById('topbar-actions');
+  if(ta) ta.innerHTML='';
+  hdInitActivityTable();
+}
 
   // scroll to top on mobile
   const content=document.querySelector('.content');
