@@ -539,9 +539,8 @@ select{
 @media print{
   @page{size:A4 landscape;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  body *{visibility:hidden!important;}
-  #print-area,#print-area *{visibility:visible!important;}
-  #print-area{display:block!important;position:fixed;top:0;left:0;z-index:9999;width:100%;background:white;box-sizing:border-box;}
+  body>*:not(#print-area){display:none!important;}
+  #print-area{display:block!important;width:100%;background:white;box-sizing:border-box;}
   .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
   .print-page:last-child{page-break-after:avoid;}
   .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:180mm;}
@@ -1254,13 +1253,11 @@ select{
   color:var(--green-dark);
   font-weight:bold;
 }
-/* ====== スマホ印刷: 縦向き1ページ対応 ====== */
+/* ====== スマホ印刷: 横向きA4 1ページ対応 ====== */
 @media print{
-  body.mobile-print #print-area{zoom:0.55;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body.mobile-print #print-area{zoom:0.75;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   body.mobile-print .print-page{page-break-after:avoid!important;page-break-inside:avoid!important;}
-  body.mobile-print .hdp-page{height:auto!important;page-break-inside:avoid!important;}
-  body.mobile-print .hdp-body{flex-direction:column!important;}
-  body.mobile-print .hdp-left,body.mobile-print .hdp-right{flex:none!important;width:100%!important;}
+  body.mobile-print .hdp-page{page-break-inside:avoid!important;}
 }
 /* ====== 新着お知らせ通知ポップアップ ====== */
 .notice-alert{
@@ -3479,6 +3476,11 @@ function updateNoticeBadge(){
       if(!badge){badge=document.createElement('span');badge.className='bnav-badge';btn.appendChild(badge);}
       badge.textContent=unread;
     } else if(badge) badge.remove();
+  }
+  // PWA アプリアイコンバッジ（ホーム画面追加時の未読数表示）
+  if('setAppBadge' in navigator){
+    if(unread>0) navigator.setAppBadge(unread).catch(()=>{});
+    else navigator.clearAppBadge().catch(()=>{});
   }
 }
 
