@@ -2982,6 +2982,7 @@ function doPrint(list){
   for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
   document.body.classList.add('print-active');
+  document.body.style.overflow='hidden';
   _isPrinting=true;
   setTimeout(()=>window.print(),200);
 }
@@ -3915,6 +3916,7 @@ function printHomeDiary(id) {
       </table>
     </div>`;
   document.body.classList.add('print-active');
+  document.body.style.overflow='hidden';
   _isPrinting=true;
   setTimeout(()=>window.print(),200);
 }
@@ -3943,25 +3945,18 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
-/* 印刷中フラグ – スマホで向き変更したときに afterprint が誤発火するのを防ぐ */
+/* 印刷中フラグ – isPrinting が true の間は orientation / resize の処理を全てスキップ */
 let _isPrinting=false;
-let _orientChangedAt=0;
-window.addEventListener('orientationchange',function(){
-  if(!_isPrinting) return;
-  _orientChangedAt=Date.now();
-  /* 向き変更中も print-active を維持して印刷用画面を保持する */
-  document.body.classList.add('print-active');
-});
 window.addEventListener('afterprint',function(){
-  /* 向き変更から1500ms以内の afterprint はスマホの誤発火として無視 */
-  if(_isPrinting&&Date.now()-_orientChangedAt<1500) return;
   _isPrinting=false;
-  document.body.classList.remove('print-active');
+  document.body.style.overflow='';
+  /* print-active の除去を遅延させ、iOS Safari が orientation 変更時に
+     afterprint を誤発火しても即時に通常画面へ戻らないようにする */
   setTimeout(function(){
-    if(document.body.classList.contains('print-active')) return;
+    document.body.classList.remove('print-active');
     const pa=document.getElementById('print-area');
     if(pa) pa.innerHTML='';
-  },1000);
+  },2000);
 });
 </script>
 
