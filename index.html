@@ -1955,6 +1955,8 @@ function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
 // INIT
 // ==================================================
 async function init(){
+  // 古い管理者フラグをクリア（onLoginで再セットされる）
+  try{localStorage.removeItem('ls_adminFlag');}catch(e){}
   // まずlocalStorageから即時読み込み（確実）
   loadLocal();
   // Firebaseからも非同期で同期
@@ -2165,6 +2167,7 @@ function logout(){
   currentUser=null;pinBuffer='';loginSelectedUser=null;
   localStorage.removeItem('ls_currentUser');
   localStorage.removeItem('ls_session');
+  try{localStorage.removeItem('ls_adminFlag');}catch(e){}
   document.querySelector('.login-box')?.classList.remove('pin-mode');
   document.body.classList.remove('logged-in');
   document.body.classList.remove('admin-user');
@@ -3732,10 +3735,7 @@ let noticeSelectedRanges=new Set(['all']);
 function canSeeNotice(u,n){
   const ranges=n.ranges||['all'];
   if(ranges.includes('all')) return true;
-  // 管理者フラグを最優先確認（ログイン済みユーザーの管理者状態を反映）
-  try{ if(localStorage.getItem('ls_adminFlag')==='1') return true; }catch(e){}
   if(isAdmin(u)) return true;
-  // 学年ベースフィルタリング
   const grade=getUserGrade(u);
   if(!grade) return true;  // 学年未設定・フリーは全て閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
