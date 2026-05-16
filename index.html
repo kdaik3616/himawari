@@ -540,11 +540,19 @@ select{
   /* landscape 固定にしない: OSの印刷ダイアログで縦/横を切替えたときにレイアウトが飛びにくい */
   @page{size:A4;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  /* 専用印刷モード(doPrint): print-areaのみ表示 */
+  /* 専用印刷モード(doPrint): print-areaのみ表示（#print-areaの非表示ルールより後で上書きするため順序に注意） */
   body.print-active>*:not(#print-area){display:none!important;}
-  body.print-active #print-area{display:block!important;width:100%;background:white;box-sizing:border-box;}
   /* 通常ブラウザ印刷: 記録内容以外のUI要素を非表示 */
   #print-area,#login-screen,#toast,#year-panel,#excel-modal,.bottom-nav,.notice-alert{display:none!important;}
+  body.print-active #print-area{
+    display:block!important;
+    width:100%;
+    max-width:100%;
+    background:white;
+    box-sizing:border-box;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
   .app-header,.sidebar,.topbar,.year-tab-bar,#year-tabs-pc,.filter-bar,#select-all-row{display:none!important;}
   .entry-actions,.echeck,.td-actions{display:none!important;}
   .entry-table th:first-child,.entry-table td:first-child{display:none!important;}
@@ -553,7 +561,13 @@ select{
   .content{overflow:visible!important;max-height:none!important;}
   .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
   .print-page:last-child{page-break-after:avoid;}
-  .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:180mm;}
+  .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:0;}
+  /* アプリからの印刷: 向き切替でも破綻しにくいよう page-break と向き別レイアウト */
+  body.print-active .print-page{
+    page-break-after:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  body.print-active .hdp-page{page-break-inside:avoid!important;height:auto!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 3mm;border-bottom:1pt solid #000;font-size:8.5pt;font-weight:bold;}
   .print-weekly{padding:2mm 3mm;border-bottom:1pt solid #000;}
   .print-weekly-label{font-size:7.5pt;color:#444;}
@@ -594,6 +608,38 @@ select{
 .hdp-count{border-collapse:collapse;width:65%;margin-top:3mm;margin-left:auto;}
 .hdp-count th,.hdp-count td{border:1pt solid #000;padding:2mm 5mm;text-align:center;font-size:10pt;}
 .hdp-count th{background:#f0f0f0;font-weight:bold;}
+}
+@media print and (orientation: portrait){
+  body.print-active .print-page{
+    flex-direction:column!important;
+    gap:3mm!important;
+    align-items:stretch!important;
+  }
+  body.print-active .print-day{
+    flex:0 0 auto!important;
+    width:100%!important;
+  }
+  body.print-active .hdp-page{height:auto!important;min-height:0!important;}
+  body.print-active .hdp-body{flex-direction:column!important;}
+  body.print-active .hdp-left,
+  body.print-active .hdp-right{
+    flex:none!important;
+    width:100%!important;
+  }
+}
+@media print and (orientation: landscape){
+  body.print-active .print-page{
+    flex-direction:row!important;
+    align-items:stretch!important;
+  }
+  body.print-active .print-day{
+    flex:1 1 0!important;
+    min-width:0!important;
+  }
+  body.print-active .hdp-page{height:auto!important;}
+  body.print-active .hdp-body{flex-direction:row!important;}
+  body.print-active .hdp-left{flex:0 0 65%!important;}
+  body.print-active .hdp-right{flex:1 1 auto!important;}
 }
 /* モバイル: ホーム日誌を縦並びに */
 @media (max-width: 768px) {
@@ -1262,12 +1308,6 @@ select{
   border-color:var(--green);
   color:var(--green-dark);
   font-weight:bold;
-}
-/* ====== スマホ印刷: 横向きA4 1ページ対応 ====== */
-@media print{
-  body.mobile-print #print-area{zoom:0.75;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  body.mobile-print .print-page{page-break-after:avoid!important;page-break-inside:avoid!important;}
-  body.mobile-print .hdp-page{page-break-inside:avoid!important;}
 }
 /* ====== 新着お知らせ通知ポップアップ ====== */
 .notice-alert{
@@ -2975,7 +3015,6 @@ function doPrint(list){
   const pages=[];
   for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
-  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
   document.body.classList.add('print-active');
   setTimeout(()=>window.print(),200);
 }
@@ -3908,7 +3947,6 @@ function printHomeDiary(id) {
         </tr>
       </table>
     </div>`;
-  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
   document.body.classList.add('print-active');
   setTimeout(()=>window.print(),200);
 }
@@ -3937,23 +3975,14 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
-/** 印刷プレビューでは innerWidth が用紙幅に変わるため、画面幅ベースで判定しない */
-function isMobilePrintUiDevice(){
-  try{
-    if(window.matchMedia('(max-device-width: 812px)').matches) return true;
-    const coarse=window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-    const shortEdge=Math.min(window.screen.width||0,window.screen.height||0);
-    if(coarse&&shortEdge>0&&shortEdge<=932) return true;
-  }catch(_){}
-  return false;
-}
-// スマホ印刷: mobile-printクラスで1ページ向けCSS適用（向き切替え後もクラスがブレないようデバイス判定のみ）
-window.addEventListener('beforeprint',function(){
-  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
-});
 window.addEventListener('afterprint',function(){
-  document.body.classList.remove('mobile-print','print-active');
-  document.getElementById('print-area').innerHTML='';
+  document.body.classList.remove('print-active');
+  /* モバイルで印刷プレビュー内の向き変更時に afterprint が誤発火することがあるため、遅延クリア */
+  setTimeout(function(){
+    if(document.body.classList.contains('print-active')) return;
+    const pa=document.getElementById('print-area');
+    if(pa) pa.innerHTML='';
+  },750);
 });
 </script>
 
