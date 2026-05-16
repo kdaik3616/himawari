@@ -1,0 +1,26 @@
+{
+  "name": "ひまわり保育日誌",
+  "short_name": "ひまわり",
+  "description": "ひまわり幼稚園の保育日誌アプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2B4419",
+  "theme_color": "#2B4419",
+  "icons": [
+    {
+      "src": "himawari-logo.png",
+      "sizes": "1024x369",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "himawari-logo.png",
+      "sizes": "1024x369",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
