@@ -3730,10 +3730,16 @@ let noticeSelectedRanges=new Set(['all']);
 function canSeeNotice(u,n){
   const ranges=n.ranges||['all'];
   if(ranges.includes('all')) return true;
-  if(isAdmin(u)||NOTICE_FULL_ACCESS.includes(u.role)) return true;
-  const grade=getUserGrade(u);
+  if(!u) return false;                   // 未ログイン → 全体のみ
+  if(isAdmin(u)) return true;            // 管理者は全範囲閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
-  return ranges.map(norm).some(r=>r===grade||r===u.role);
+  const nr=ranges.map(norm);
+  // 管理範囲: 副主任まで閲覧可能
+  if(nr.includes('admin')&&['principal','vice_principal','head_teacher','asst_head'].includes(u.role)) return true;
+  // 学年ベース: 自分の学年に一致する範囲のみ
+  const grade=getUserGrade(u);
+  if(grade) return nr.some(r=>r===grade);
+  return false;                          // 学年なし・非管理 → 全体のみ
 }
 
 function unreadNoticesForUser(u){
