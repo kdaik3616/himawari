@@ -200,6 +200,24 @@ body.ready{opacity:1;transition:opacity 100ms ease;}
 .sort-order-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--white);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);}
 .sort-order-btn:hover:not(:disabled){background:var(--sun-light);}
 .sort-order-btn:disabled{opacity:0.25;cursor:not-allowed;}
+/* ====== DRAG AND DROP / GRADE SECTIONS ====== */
+.grade-section{margin-bottom:14px;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.08);}
+.grade-section-header{font-size:11px;font-weight:700;letter-spacing:0.08em;color:white;background:var(--green-dark);padding:8px 14px;}
+.grade-section-body{border:2px solid var(--border);border-top:none;border-radius:0 0 10px 10px;min-height:48px;background:var(--white);}
+.grade-section-body.drop-target{background:rgba(245,197,24,0.14);}
+.grade-section-empty{padding:14px;text-align:center;font-size:12px;color:var(--warm-gray);}
+.drag-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(234,217,176,0.5);background:var(--white);transition:opacity 0.12s;}
+.drag-item:last-child{border-bottom:none;}
+.drag-item.dragging{opacity:0.3;}
+.drag-item.drag-over{outline:2px solid var(--sun);outline-offset:-2px;background:rgba(245,197,24,0.12);}
+.drag-handle{font-size:20px;color:#ccc;cursor:grab;padding:0 4px;flex-shrink:0;user-select:none;touch-action:none;line-height:1;}
+.drag-handle:hover{color:var(--green-dark);}
+.drag-handle:active{cursor:grabbing;}
+.drag-item-main{display:flex;gap:6px;align-items:center;flex:1;min-width:0;}
+.drag-name-input{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-weight:600;width:86px;font-family:inherit;color:var(--text);background:var(--cream);}
+.drag-name-input:focus{outline:none;border-color:var(--green-dark);background:var(--white);box-shadow:0 0 0 2px rgba(43,68,25,0.12);}
+.drag-grade-sel,.drag-role-sel{border:1px solid var(--border);border-radius:6px;padding:5px 4px;font-size:11px;font-family:inherit;color:var(--text);background:var(--cream);}
+.drag-item-actions{display:flex;gap:4px;align-items:center;flex-shrink:0;}
 .pin-user-display{
   display:flex;align-items:center;gap:12px;
   padding:12px 14px;background:var(--cream);border-radius:14px;
@@ -1667,12 +1685,21 @@ select{
           <div class="section-card">
             <div class="section-header">👥 ユーザー一覧・PIN管理</div>
             <div class="section-body">
-              <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">ユーザーの追加・PIN変更・削除ができます。初期PINは <strong>1234</strong> です。各自が変更するよう促してください。</p>
-              <div id="users-table-wrap"></div>
+              <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">⠿ ドラッグハンドルを掴んで並べ替え・学年移動ができます。名前は直接編集可能です。</p>
+              <div id="users-table-wrap" style="overflow-x:auto;"></div>
               <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
                 <div style="font-size:13px;font-weight:600;color:var(--sage-dark);margin-bottom:10px;">新しいユーザーを追加</div>
                 <div class="field-row">
                   <div class="field-group"><label class="field-label">氏名</label><input type="text" id="new-user-name" placeholder="例：佐藤先生"></div>
+                  <div class="field-group"><label class="field-label">学年</label>
+                    <select id="new-user-grade">
+                      <option value="senior">年長</option>
+                      <option value="middle">年中</option>
+                      <option value="junior">年少</option>
+                      <option value="sesame">セサミ</option>
+                      <option value="null">管理・その他</option>
+                    </select>
+                  </div>
                   <div class="field-group"><label class="field-label">役職</label>
                     <select id="new-user-role">
                       <option value="senior">年長</option>
@@ -2017,51 +2044,52 @@ function getOrderedUsers(){
   return [...res,...remaining];
 }
 function hoomroomBadge(u){ return u&&u.homeroom?'<span class="homeroom-badge">担任</span>':''; }
+function getUserGrade(u){
+  if(u.grade!==undefined&&u.grade!==null) return u.grade;
+  if(['senior','middle','junior','sesame'].includes(u.role)) return u.role;
+  return null;
+}
 
 function renderLoginUsers(filter=''){
   const list=document.getElementById('user-list-login');
   if(!list) return;
   const q=filter.trim().toLowerCase();
-  const filtered=users.filter(u=>!q||u.name.toLowerCase().includes(q));
-
+  const allOrdered=getOrderedUsers()||[...users];
+  const filtered=allOrdered.filter(u=>!q||u.name.toLowerCase().includes(q));
   if(!filtered.length){
     list.innerHTML=`<div class="user-list-no-result">「${filter}」に一致するユーザーが見つかりません</div>`;
     return;
   }
-
-  // カスタム順序があり検索なしの場合はフラットリスト
-  const customOrder=getLoginOrder();
-  if(customOrder&&!q){
-    const ordered=getOrderedUsers()||filtered;
-    const show=ordered.filter(u=>filtered.find(f=>f.id===u.id));
-    list.innerHTML=show.map(u=>`
-      <div class="user-list-item" onclick="selectLoginUser('${u.id}')">
-        <div class="user-list-avatar avatar-${u.role}">${u.name.charAt(0)}</div>
-        <span class="user-list-name">${u.name}${hoomroomBadge(u)}</span>
-        <span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span>
-      </div>`).join('');
-    return;
-  }
-
-  // デフォルト: 役職グループ表示
-  const roleOrder=['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free'];
-  const grouped={};
-  roleOrder.forEach(r=>{grouped[r]=[];});
-  filtered.forEach(u=>{if(grouped[u.role])grouped[u.role].push(u);else grouped['free'].push(u);});
-  const roleNames={'principal':'👑 園長','vice_principal':'🌟 副園長','head_teacher':'📋 主任','asst_head':'📌 副主任','senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ','free':'🔄 フリー'};
+  // 検索中はフラットリスト
+  if(q){ list.innerHTML=filtered.map(renderLoginItem).join(''); return; }
+  // 学年別セクション表示
+  const GRADE_ORDER=['senior','middle','junior','sesame'];
+  const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理'};
+  const sections={null:[]};
+  GRADE_ORDER.forEach(g=>{sections[g]=[];});
+  filtered.forEach(u=>{
+    const g=getUserGrade(u);
+    if(g in sections) sections[g].push(u); else sections[null].push(u);
+  });
   let html='';
-  roleOrder.forEach(role=>{
-    const group=grouped[role];
-    if(!group.length) return;
-    html+=`<div class="user-list-group-label">${roleNames[role]}</div>`;
-    html+=group.map(u=>`
-      <div class="user-list-item" onclick="selectLoginUser('${u.id}')">
-        <div class="user-list-avatar avatar-${u.role}">${u.name.charAt(0)}</div>
-        <span class="user-list-name">${u.name}${hoomroomBadge(u)}</span>
-        <span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span>
-      </div>`).join('');
+  if(sections[null].length){
+    html+=`<div class="user-list-group-label">${GRADE_LABELS[null]}</div>`;
+    html+=sections[null].map(renderLoginItem).join('');
+  }
+  GRADE_ORDER.forEach(grade=>{
+    if(!sections[grade].length) return;
+    html+=`<div class="user-list-group-label">${GRADE_LABELS[grade]}</div>`;
+    html+=sections[grade].map(renderLoginItem).join('');
   });
   list.innerHTML=html;
+}
+
+function renderLoginItem(u){
+  return `<div class="user-list-item" onclick="selectLoginUser('${u.id}')">
+    <div class="user-list-avatar avatar-${u.role}">${u.name.charAt(0)}</div>
+    <span class="user-list-name">${u.name}${hoomroomBadge(u)}</span>
+    <span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span>
+  </div>`;
 }
 
 function filterLoginUsers(){
@@ -2894,45 +2922,53 @@ function updateSelUI(){
 // ==================================================
 function renderUsersTable(){
   const wrap=document.getElementById('users-table-wrap');
-  const roleOpts=(cur)=>['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free'].map(r=>
-    `<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
-  const displayList=getOrderedUsers()||[...users];
-  const n=displayList.length;
-  wrap.innerHTML=`
-  <table class="user-table" style="min-width:640px;">
-    <thead><tr><th>氏名</th><th>役職（変更可）</th><th>担任</th><th>PIN</th><th>操作</th><th>表示順</th></tr></thead>
-    <tbody>
-      ${displayList.map((u,i)=>`
-      <tr id="urow-${u.id}">
-        <td style="font-weight:500;">${u.name}${hoomroomBadge(u)}${u.id===currentUser.id?'<span style="font-size:10px;color:var(--warm-gray);margin-left:4px;">（自分）</span>':''}</td>
-        <td>
-          ${u.id===currentUser.id
-            ? `<span class="role-badge role-${u.role}">${ROLE_LABEL[u.role]}</span><span style="font-size:11px;color:var(--warm-gray);margin-left:6px;">変更不可</span>`
-            : `<div style="display:flex;gap:6px;align-items:center;">
-                <select id="role-sel-${u.id}" style="padding:5px 28px 5px 8px;font-size:12px;border-radius:6px;min-width:100px;">${roleOpts(u.role)}</select>
-                <button class="btn-secondary btn-sm" onclick="changeRole('${u.id}')">変更</button>
-               </div>`
+  if(!wrap) return;
+  const GRADE_ORDER=['senior','middle','junior','sesame',null];
+  const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理・その他'};
+  const gradeOpts=(cur)=>[['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],['null','管理・その他']]
+    .map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
+  const roleOpts=(cur)=>['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free']
+    .map(r=>`<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
+  const ordered=getOrderedUsers()||[...users];
+  const sections={};
+  GRADE_ORDER.forEach(g=>{sections[String(g)]=[];});
+  ordered.forEach(u=>{const k=String(getUserGrade(u));if(k in sections)sections[k].push(u);else sections['null'].push(u);});
+  let html='';
+  GRADE_ORDER.forEach(grade=>{
+    const k=String(grade);
+    const group=sections[k];
+    html+=`<div class="grade-section" data-grade="${k}">
+      <div class="grade-section-header">${GRADE_LABELS[grade]}</div>
+      <div class="grade-section-body" id="gsb-${k}">`;
+    if(!group.length) html+=`<div class="grade-section-empty">ここにドロップして移動</div>`;
+    group.forEach(u=>{
+      const isSelf=u.id===currentUser.id;
+      html+=`<div class="drag-item" data-uid="${u.id}" data-grade="${k}" draggable="true">
+        <div class="drag-handle" title="ドラッグして並べ替え">⠿</div>
+        <div class="drag-item-main">
+          <input class="drag-name-input" id="dni-${u.id}" value="${u.name}"
+            ondragstart="event.stopPropagation()" onblur="saveUserName('${u.id}')"
+            onkeydown="if(event.key==='Enter')this.blur()">
+          ${isSelf
+            ? `<span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}（自分）</span>`
+            : `<select class="drag-grade-sel" id="dgs-${u.id}" ondragstart="event.stopPropagation()"
+                 onchange="saveUserGrade('${u.id}')">${gradeOpts(getUserGrade(u))}</select>
+               <select class="drag-role-sel" id="drs-${u.id}" ondragstart="event.stopPropagation()"
+                 onchange="changeRoleInline('${u.id}')">${roleOpts(u.role)}</select>`
           }
-        </td>
-        <td style="text-align:center;">
-          <button class="btn-sm ${u.homeroom?'btn-primary':'btn-secondary'}" onclick="toggleHomeroom('${u.id}')">${u.homeroom?'担任中':'設定'}</button>
-        </td>
-        <td>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <span style="letter-spacing:0.1em;color:var(--warm-gray);">••••</span>
-            <button class="btn-secondary btn-sm" onclick="resetPin('${u.id}')">初期化</button>
-          </div>
-        </td>
-        <td>
-          ${u.id!==currentUser.id?`<button class="btn-danger btn-sm" onclick="deleteUser('${u.id}')">削除</button>`:'―'}
-        </td>
-        <td style="text-align:center;white-space:nowrap;">
-          <button class="sort-order-btn" onclick="moveUserOrder('${u.id}','up')" ${i===0?'disabled':''}>↑</button>
-          <button class="sort-order-btn" onclick="moveUserOrder('${u.id}','down')" ${i===n-1?'disabled':''}>↓</button>
-        </td>
-      </tr>`).join('')}
-    </tbody>
-  </table>`;
+          ${hoomroomBadge(u)}
+        </div>
+        <div class="drag-item-actions">
+          <button class="btn-sm ${u.homeroom?'btn-primary':'btn-secondary'}" onclick="toggleHomeroom('${u.id}')">${u.homeroom?'担任中':'担任'}</button>
+          <button class="btn-secondary btn-sm" onclick="resetPin('${u.id}')">PIN</button>
+          ${!isSelf?`<button class="btn-danger btn-sm" onclick="deleteUser('${u.id}')">削除</button>`:''}
+        </div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  wrap.innerHTML=`<div style="min-width:520px;">${html}</div>`;
+  initDragAndDrop();
 }
 
 async function toggleHomeroom(uid){
@@ -2968,6 +3004,172 @@ function moveUserOrder(uid,dir){
   renderLoginUsers();
 }
 
+async function saveUserName(uid){
+  const inp=document.getElementById('dni-'+uid);
+  if(!inp) return;
+  const newName=inp.value.trim();
+  const u=users.find(x=>x.id===uid);
+  if(!u) return;
+  if(!newName){inp.value=u.name; return;}
+  if(newName===u.name) return;
+  const old=u.name; u.name=newName; saveLocal(); renderLoginUsers();
+  try{await fsUpdateField(COLL_USERS,uid,'name',newName); showToast('✅ 名前を変更しました');}
+  catch(e){u.name=old; saveLocal(); if(inp)inp.value=old; showToast('⚠️ '+e.message);}
+}
+
+async function saveUserGrade(uid){
+  const sel=document.getElementById('dgs-'+uid);
+  if(!sel) return;
+  const newGrade=sel.value==='null'?null:sel.value;
+  const u=users.find(x=>x.id===uid);
+  if(!u||getUserGrade(u)===newGrade) return;
+  u.grade=newGrade; saveLocal(); renderUsersTable(); renderLoginUsers();
+  try{await fsUpdateField(COLL_USERS,uid,'grade',newGrade); showToast('✅ 学年を変更しました');}
+  catch(e){showToast('⚠️ '+e.message);}
+}
+
+async function changeRoleInline(uid){
+  const sel=document.getElementById('drs-'+uid);
+  if(!sel) return;
+  const newRole=sel.value;
+  const u=users.find(x=>x.id===uid);
+  if(!u||newRole===u.role) return;
+  u.role=newRole; saveLocal(); renderUsersTable(); renderLoginUsers();
+  try{await fsUpdateField(COLL_USERS,uid,'role',newRole); showToast('✅ '+u.name+' の役職を変更しました');}
+  catch(e){showToast('⚠️ '+e.message);}
+}
+
+// ============================================================
+// DRAG AND DROP
+// ============================================================
+const dnd={srcId:null,srcEl:null,ghost:null,offX:0,offY:0};
+
+function initDragAndDrop(){
+  document.querySelectorAll('.drag-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{
+      dnd.srcId=el.dataset.uid;
+      setTimeout(()=>el.classList.add('dragging'),0);
+      e.dataTransfer.effectAllowed='move';
+    });
+    el.addEventListener('dragend',()=>{
+      el.classList.remove('dragging');
+      document.querySelectorAll('.drag-item.drag-over').forEach(x=>x.classList.remove('drag-over'));
+      document.querySelectorAll('.grade-section-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+      dnd.srcId=null;
+    });
+    el.addEventListener('dragover',e=>{
+      e.preventDefault();
+      document.querySelectorAll('.drag-item.drag-over').forEach(x=>x.classList.remove('drag-over'));
+      document.querySelectorAll('.grade-section-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+      if(el.dataset.uid!==dnd.srcId) el.classList.add('drag-over');
+    });
+    el.addEventListener('drop',e=>{
+      e.preventDefault();
+      if(dnd.srcId&&dnd.srcId!==el.dataset.uid) performDrop(dnd.srcId,el.dataset.uid);
+      el.classList.remove('drag-over');
+    });
+    const handle=el.querySelector('.drag-handle');
+    if(handle) handle.addEventListener('touchstart',e=>dndTouchStart(e,el),{passive:false});
+  });
+  document.querySelectorAll('.grade-section-body').forEach(body=>{
+    body.addEventListener('dragover',e=>{
+      e.preventDefault();
+      document.querySelectorAll('.grade-section-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+      body.classList.add('drop-target');
+    });
+    body.addEventListener('dragleave',()=>body.classList.remove('drop-target'));
+    body.addEventListener('drop',e=>{
+      e.preventDefault();
+      body.classList.remove('drop-target');
+      if(!dnd.srcId||e.target.closest('.drag-item')) return;
+      const grade=body.closest('.grade-section').dataset.grade;
+      performDropToGrade(dnd.srcId,grade==='null'?null:grade);
+    });
+  });
+}
+
+function performDrop(srcId,targetId){
+  const su=users.find(u=>u.id===srcId);
+  const tu=users.find(u=>u.id===targetId);
+  if(!su||!tu) return;
+  const sg=getUserGrade(su),tg=getUserGrade(tu);
+  if(sg!==tg){
+    su.grade=tg;
+    fsUpdateField(COLL_USERS,srcId,'grade',tg).catch(e=>showToast('⚠️ '+e.message));
+  }
+  const ordered=getOrderedUsers()||[...users];
+  const si=ordered.findIndex(u=>u.id===srcId);
+  if(si!==-1) ordered.splice(si,1);
+  const ti=ordered.findIndex(u=>u.id===targetId);
+  ordered.splice(ti!==-1?ti:ordered.length,0,su);
+  saveLoginOrder(ordered.map(u=>u.id));
+  saveLocal(); renderUsersTable(); renderLoginUsers();
+}
+
+function performDropToGrade(srcId,newGrade){
+  const u=users.find(x=>x.id===srcId);
+  if(!u) return;
+  u.grade=newGrade; saveLocal();
+  const ordered=getOrderedUsers()||[...users];
+  const si=ordered.findIndex(x=>x.id===srcId);
+  if(si!==-1){const[r]=ordered.splice(si,1);ordered.push(r);}
+  saveLoginOrder(ordered.map(u=>u.id));
+  renderUsersTable(); renderLoginUsers();
+  fsUpdateField(COLL_USERS,srcId,'grade',newGrade).catch(e=>showToast('⚠️ '+e.message));
+}
+
+function dndTouchStart(e,el){
+  e.preventDefault();
+  dnd.srcId=el.dataset.uid; dnd.srcEl=el;
+  const t=e.touches[0],rect=el.getBoundingClientRect();
+  dnd.offX=t.clientX-rect.left; dnd.offY=t.clientY-rect.top;
+  const g=el.cloneNode(true);
+  Object.assign(g.style,{position:'fixed',top:rect.top+'px',left:rect.left+'px',
+    width:rect.width+'px',zIndex:'9999',opacity:'0.85',pointerEvents:'none',
+    boxShadow:'0 8px 24px rgba(0,0,0,0.25)',borderRadius:'8px',transform:'scale(1.02)'});
+  document.body.appendChild(g); dnd.ghost=g;
+  el.style.opacity='0.3';
+  document.addEventListener('touchmove',dndTouchMove,{passive:false});
+  document.addEventListener('touchend',dndTouchEnd,{passive:false});
+}
+
+function dndTouchMove(e){
+  e.preventDefault();
+  if(!dnd.ghost) return;
+  const t=e.touches[0];
+  dnd.ghost.style.top=(t.clientY-dnd.offY)+'px';
+  dnd.ghost.style.left=(t.clientX-dnd.offX)+'px';
+  dnd.ghost.style.display='none';
+  const under=document.elementFromPoint(t.clientX,t.clientY);
+  dnd.ghost.style.display='';
+  document.querySelectorAll('.drag-item.drag-over').forEach(x=>x.classList.remove('drag-over'));
+  document.querySelectorAll('.grade-section-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+  const ti=under?.closest?.('.drag-item');
+  const tb=under?.closest?.('.grade-section-body');
+  if(ti&&ti.dataset.uid!==dnd.srcId) ti.classList.add('drag-over');
+  else if(tb) tb.classList.add('drop-target');
+}
+
+function dndTouchEnd(e){
+  const t=e.changedTouches[0];
+  if(dnd.ghost) dnd.ghost.style.display='none';
+  const under=document.elementFromPoint(t.clientX,t.clientY);
+  if(dnd.ghost){document.body.removeChild(dnd.ghost);dnd.ghost=null;}
+  if(dnd.srcEl){dnd.srcEl.style.opacity='';dnd.srcEl=null;}
+  document.querySelectorAll('.drag-item.drag-over,.drag-item.dragging').forEach(x=>x.classList.remove('drag-over','dragging'));
+  document.querySelectorAll('.grade-section-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+  const ti=under?.closest?.('.drag-item');
+  const tb=under?.closest?.('.grade-section-body');
+  if(ti&&ti.dataset.uid!==dnd.srcId) performDrop(dnd.srcId,ti.dataset.uid);
+  else if(tb){
+    const grade=tb.closest('.grade-section').dataset.grade;
+    performDropToGrade(dnd.srcId,grade==='null'?null:grade);
+  }
+  document.removeEventListener('touchmove',dndTouchMove);
+  document.removeEventListener('touchend',dndTouchEnd);
+  dnd.srcId=null;
+}
+
 async function changeRole(uid){
   const u=users.find(x=>x.id===uid);
   if(!u)return;
@@ -2983,12 +3185,14 @@ async function changeRole(uid){
 
 async function addUser(){
   const name=document.getElementById('new-user-name').value.trim();
+  const gradeEl=document.getElementById('new-user-grade');
+  const grade=gradeEl?(gradeEl.value==='null'?null:gradeEl.value):null;
   const role=document.getElementById('new-user-role').value;
   const pin=document.getElementById('new-user-pin').value.trim()||'1234';
   if(!name){showToast('氏名を入力してください');return;}
   if(users.find(u=>u.name===name)){showToast('同じ名前が既に登録されています');return;}
   if(!/^\d{4}$/.test(pin)){showToast('PINは4桁の数字にしてください');return;}
-  const u={id:'u'+Date.now(),name,role,pin};
+  const u={id:'u'+Date.now(),name,role,pin,grade};
   try{
     await fsSet(COLL_USERS,u.id,u);
     document.getElementById('new-user-name').value='';
