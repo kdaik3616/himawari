@@ -2180,8 +2180,8 @@ function logout(){
 function onLogin(){
   try{
     const u=currentUser;
-    // 管理者フラグをこの端末に永続保存（ログアウト後も維持）
-    if(isAdmin(u)) try{localStorage.setItem('ls_adminFlag','1');}catch(e){}
+    // 管理者フラグをログインユーザーに合わせて更新
+    try{ if(isAdmin(u)) localStorage.setItem('ls_adminFlag','1'); else localStorage.removeItem('ls_adminFlag'); }catch(e){}
     const headerName=document.getElementById('header-user-name');
     if(headerName) headerName.innerHTML=`${u.name}${hoomroomBadge(u)} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
     // サイドバー要素はnullの場合がある（PC/モバイルで異なる）
@@ -3732,18 +3732,14 @@ let noticeSelectedRanges=new Set(['all']);
 function canSeeNotice(u,n){
   const ranges=n.ranges||['all'];
   if(ranges.includes('all')) return true;
-  // 管理者フラグがある端末はログイン状態に関わらず全通知閲覧可能
+  // 管理者フラグを最優先確認（ログイン済みユーザーの管理者状態を反映）
   try{ if(localStorage.getItem('ls_adminFlag')==='1') return true; }catch(e){}
-  if(!u) return false;                   // 未ログイン・フラグなし → 全体のみ
-  if(isAdmin(u)) return true;            // 管理者は全範囲閲覧可能
-  const norm=r=>(r==='sesami'?'sesame':r);
-  const nr=ranges.map(norm);
-  // 管理範囲: 副主任まで閲覧可能
-  if(nr.includes('admin')&&['principal','vice_principal','head_teacher','asst_head'].includes(u.role)) return true;
-  // 学年ベース: 自分の学年に一致する範囲のみ
+  if(isAdmin(u)) return true;
+  // 学年ベースの厳密フィルタリング
   const grade=getUserGrade(u);
-  if(grade) return nr.some(r=>r===grade);
-  return false;                          // 学年なし・非管理 → 全体のみ
+  const norm=r=>(r==='sesami'?'sesame':r);
+  if(grade) return ranges.map(norm).some(r=>r===grade);
+  return false;
 }
 
 function unreadNoticesForUser(u){
