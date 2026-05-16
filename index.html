@@ -539,8 +539,17 @@ select{
 @media print{
   @page{size:A4 landscape;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  body>*:not(#print-area){display:none!important;}
-  #print-area{display:block!important;width:100%;background:white;box-sizing:border-box;}
+  /* 専用印刷モード(doPrint): print-areaのみ表示 */
+  body.print-active>*:not(#print-area){display:none!important;}
+  body.print-active #print-area{display:block!important;width:100%;background:white;box-sizing:border-box;}
+  /* 通常ブラウザ印刷: 記録内容以外のUI要素を非表示 */
+  #print-area,#login-screen,#toast,#year-panel,#excel-modal,.bottom-nav,.notice-alert{display:none!important;}
+  .app-header,.sidebar,.topbar,.year-tab-bar,#year-tabs-pc,.filter-bar,#select-all-row{display:none!important;}
+  .entry-actions,.echeck,.td-actions{display:none!important;}
+  .entry-table th:first-child,.entry-table td:first-child{display:none!important;}
+  .app-shell{overflow:visible!important;}
+  .main-area{overflow:visible!important;}
+  .content{overflow:visible!important;max-height:none!important;}
   .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
   .print-page:last-child{page-break-after:avoid;}
   .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:180mm;}
@@ -1610,7 +1619,7 @@ select{
               <button class="btn-secondary btn-sm" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+          <div id="select-all-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
             <input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="width:auto;margin:0;cursor:pointer;">
             <label for="select-all" style="font-size:13px;color:var(--text-light);cursor:pointer;">全て選択</label>
             <span id="selected-count" style="font-size:12px;color:var(--accent);margin-left:8px;"></span>
@@ -2965,6 +2974,7 @@ function doPrint(list){
   const pages=[];
   for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
+  document.body.classList.add('print-active');
   setTimeout(()=>window.print(),200);
 }
 function printSingle(id){const e=entries.find(x=>x.id===id);if(e)doPrint([e]);}
@@ -3896,6 +3906,7 @@ function printHomeDiary(id) {
         </tr>
       </table>
     </div>`;
+  document.body.classList.add('print-active');
   window.print();
 }
   function hdUpdateTotal() {
@@ -3928,7 +3939,8 @@ window.addEventListener('beforeprint',function(){
   if(window.screen.width<768||window.innerWidth<768) document.body.classList.add('mobile-print');
 });
 window.addEventListener('afterprint',function(){
-  document.body.classList.remove('mobile-print');
+  document.body.classList.remove('mobile-print','print-active');
+  document.getElementById('print-area').innerHTML='';
 });
 </script>
 
