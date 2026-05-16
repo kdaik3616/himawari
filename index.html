@@ -537,7 +537,7 @@ select{
 /* ====== PRINT ====== */
 #print-area{display:none;}
 @media print{
-  /* PC・スマホともに横向きA4で固定 */
+  /* 横向きA4固定 – 向きに関係なく常に同じレイアウトで印刷 */
   @page{size:A4 landscape;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   /* 専用印刷モード(doPrint): print-areaのみ表示（#print-areaの非表示ルールより後で上書きするため順序に注意） */
@@ -559,87 +559,52 @@ select{
   .app-shell{overflow:visible!important;}
   .main-area{overflow:visible!important;}
   .content{overflow:visible!important;max-height:none!important;}
-  .print-page{width:100%;page-break-after:always;page-break-inside:avoid;display:flex;gap:8mm;font-family:'Noto Sans JP',sans-serif;font-size:9pt;}
-  .print-page:last-child{page-break-after:avoid;}
-  .print-day{flex:1;border:1.5pt solid #000;display:flex;flex-direction:column;min-height:0;}
-  /* アプリからの印刷: 向き切替でも破綻しにくいよう page-break と向き別レイアウト */
-  body.print-active .print-page{
-    page-break-after:avoid!important;
-    page-break-inside:avoid!important;
-  }
-  body.print-active .hdp-page{page-break-inside:avoid!important;height:auto!important;}
-  .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 3mm;border-bottom:1pt solid #000;font-size:8.5pt;font-weight:bold;}
-  .print-weekly{padding:2mm 3mm;border-bottom:1pt solid #000;}
-  .print-weekly-label{font-size:7.5pt;color:#444;}
-  .print-weekly-value{font-size:9pt;min-height:8mm;white-space:pre-wrap;}
+  /* 保育日誌: 横並び2段組 – 向き不問で1ページに収める */
+  .print-page{width:100%;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;display:flex;flex-direction:row;gap:5mm;font-family:'Noto Sans JP',sans-serif;font-size:8.5pt;}
+  .print-page:last-child{page-break-after:avoid;break-after:avoid;}
+  .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;}
+  body.print-active .print-page{page-break-after:avoid!important;break-after:avoid!important;page-break-inside:avoid!important;break-inside:avoid!important;}
+  body.print-active .hdp-page{page-break-inside:avoid!important;break-inside:avoid!important;height:auto!important;}
+  .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 2mm;border-bottom:1pt solid #000;font-size:8pt;font-weight:bold;}
+  .print-weekly{padding:1.5mm 2mm;border-bottom:1pt solid #000;}
+  .print-weekly-label{font-size:7pt;color:#444;}
+  .print-weekly-value{font-size:8.5pt;min-height:6mm;white-space:pre-wrap;}
   .print-date-row{display:flex;align-items:stretch;border-bottom:1pt solid #000;}
-  .print-date-cell{padding:2mm 3mm;border-right:1pt solid #000;flex:1;}
-  .print-date-cell:last-child{border-right:none;flex:0 0 auto;min-width:22mm;}
-  .print-date-label{font-size:7.5pt;color:#444;}
-  .print-date-value{font-size:9pt;font-weight:bold;}
+  .print-date-cell{padding:1.5mm 2mm;border-right:1pt solid #000;flex:1;}
+  .print-date-cell:last-child{border-right:none;flex:0 0 auto;min-width:18mm;}
+  .print-date-label{font-size:7pt;color:#444;}
+  .print-date-value{font-size:8.5pt;font-weight:bold;}
   .print-body{display:flex;flex:1;border-bottom:1pt solid #000;}
-  .print-col-activity{flex:0 0 30%;border-right:1pt solid #000;padding:2mm 3mm;}
-  .print-col-support{flex:0 0 35%;border-right:1pt solid #000;padding:2mm 3mm;}
+  .print-col-activity{flex:0 0 30%;border-right:1pt solid #000;padding:1.5mm 2mm;}
+  .print-col-support{flex:0 0 35%;border-right:1pt solid #000;padding:1.5mm 2mm;}
   .print-col-right{flex:1;display:flex;flex-direction:column;}
-  .print-col-right-cell{padding:2mm 3mm;border-bottom:1pt solid #000;flex:1;}
+  .print-col-right-cell{padding:1.5mm 2mm;border-bottom:1pt solid #000;flex:1;}
   .print-col-right-cell:last-child{border-bottom:none;}
-  .print-episode{padding:2mm 3mm;min-height:20mm;}
-  .print-col-label{font-size:7.5pt;color:#444;margin-bottom:1mm;display:block;}
-  .print-col-value{font-size:9pt;line-height:1.5;white-space:pre-wrap;}
+  .print-episode{padding:1.5mm 2mm;min-height:12mm;}
+  .print-col-label{font-size:7pt;color:#444;margin-bottom:0.5mm;display:block;}
+  .print-col-value{font-size:8.5pt;line-height:1.4;white-space:pre-wrap;}
 
-  /* HOME DIARY PRINT */
-.hdp-page{font-family:'Noto Sans JP',sans-serif;font-size:10pt;width:100%;height:194mm;display:flex;flex-direction:column;}
-.hdp-header{display:flex;gap:14mm;padding:3mm 2mm;border-bottom:2pt solid #000;margin-bottom:2mm;font-weight:bold;font-size:11pt;}
-.hdp-body{display:flex;gap:4mm;flex:1;}
-.hdp-left{flex:0 0 65%;display:flex;flex-direction:column;}
-.hdp-right{flex:1;min-width:0;border:1pt solid #000;display:flex;flex-direction:column;overflow:hidden;}
-.hdp-table{width:100%;border-collapse:collapse;flex:1;}
-.hdp-cell{border:1pt solid #000;padding:2mm 3mm;vertical-align:top;font-size:9pt;min-height:22mm;}
-.hdp-time{border:1pt solid #000;padding:2mm;text-align:center;font-size:9pt;width:16mm;white-space:nowrap;font-weight:bold;}
-.hdp-th-main{border:1pt solid #000;padding:2mm;text-align:center;background:#f0f0f0;font-size:10pt;font-weight:bold;}
-.hdp-th{border:1pt solid #000;padding:2mm;text-align:center;background:#f9f9f9;font-size:9.5pt;font-weight:bold;}
-.hdp-snack{border:1pt solid #000;border-top:none;padding:3mm;font-size:10pt;background:#fffbe6;font-weight:bold;}
-.hdp-rs{border-bottom:1pt solid #000;padding:2.5mm 3mm;}
-.hdp-rs-flex{flex:1;border-bottom:none;}
-.hdp-rl{font-size:8.5pt;color:#444;font-weight:bold;margin-bottom:1.5mm;}
-.hdp-rv{font-size:9.5pt;min-height:12mm;white-space:pre-wrap;line-height:1.4;}
-.hdp-duty{display:flex;flex-wrap:wrap;gap:3px;margin-top:1.5mm;max-width:100%;}
-.hdp-duty-name{border:1pt solid #000;border-radius:50%;padding:0.5mm 2mm;font-size:8pt;white-space:nowrap;}
-.hdp-count{border-collapse:collapse;width:65%;margin-top:3mm;margin-left:auto;}
-.hdp-count th,.hdp-count td{border:1pt solid #000;padding:2mm 5mm;text-align:center;font-size:10pt;}
-.hdp-count th{background:#f0f0f0;font-weight:bold;}
-}
-@media print and (orientation: portrait){
-  body.print-active .print-page{
-    flex-direction:column!important;
-    gap:3mm!important;
-    align-items:stretch!important;
-  }
-  body.print-active .print-day{
-    flex:0 0 auto!important;
-    width:100%!important;
-  }
-  body.print-active .hdp-page{height:auto!important;min-height:0!important;}
-  body.print-active .hdp-body{flex-direction:column!important;}
-  body.print-active .hdp-left,
-  body.print-active .hdp-right{
-    flex:none!important;
-    width:100%!important;
-  }
-}
-@media print and (orientation: landscape){
-  body.print-active .print-page{
-    flex-direction:row!important;
-    align-items:stretch!important;
-  }
-  body.print-active .print-day{
-    flex:1 1 0!important;
-    min-width:0!important;
-  }
-  body.print-active .hdp-page{height:auto!important;}
-  body.print-active .hdp-body{flex-direction:row!important;}
-  body.print-active .hdp-left{flex:0 0 65%!important;}
-  body.print-active .hdp-right{flex:1 1 auto!important;}
+  /* HOME DIARY PRINT – 常に横並び固定 */
+  .hdp-page{font-family:'Noto Sans JP',sans-serif;font-size:9pt;width:100%;height:auto;page-break-inside:avoid;break-inside:avoid;display:flex;flex-direction:column;}
+  .hdp-header{display:flex;gap:10mm;padding:2mm;border-bottom:2pt solid #000;margin-bottom:1.5mm;font-weight:bold;font-size:10pt;}
+  .hdp-body{display:flex;flex-direction:row;gap:4mm;flex:1;}
+  .hdp-left{flex:0 0 65%;display:flex;flex-direction:column;}
+  .hdp-right{flex:1;min-width:0;border:1pt solid #000;display:flex;flex-direction:column;overflow:hidden;}
+  .hdp-table{width:100%;border-collapse:collapse;flex:1;}
+  .hdp-cell{border:1pt solid #000;padding:1.5mm 2mm;vertical-align:top;font-size:8.5pt;min-height:18mm;}
+  .hdp-time{border:1pt solid #000;padding:1.5mm;text-align:center;font-size:8.5pt;width:14mm;white-space:nowrap;font-weight:bold;}
+  .hdp-th-main{border:1pt solid #000;padding:1.5mm;text-align:center;background:#f0f0f0;font-size:9pt;font-weight:bold;}
+  .hdp-th{border:1pt solid #000;padding:1.5mm;text-align:center;background:#f9f9f9;font-size:9pt;font-weight:bold;}
+  .hdp-snack{border:1pt solid #000;border-top:none;padding:2mm;font-size:9pt;background:#fffbe6;font-weight:bold;}
+  .hdp-rs{border-bottom:1pt solid #000;padding:1.5mm 2mm;}
+  .hdp-rs-flex{flex:1;border-bottom:none;}
+  .hdp-rl{font-size:8pt;color:#444;font-weight:bold;margin-bottom:1mm;}
+  .hdp-rv{font-size:9pt;min-height:10mm;white-space:pre-wrap;line-height:1.3;}
+  .hdp-duty{display:flex;flex-wrap:wrap;gap:2px;margin-top:1mm;max-width:100%;}
+  .hdp-duty-name{border:1pt solid #000;border-radius:50%;padding:0.5mm 1.5mm;font-size:7.5pt;white-space:nowrap;}
+  .hdp-count{border-collapse:collapse;width:65%;margin-top:2mm;margin-left:auto;}
+  .hdp-count th,.hdp-count td{border:1pt solid #000;padding:1.5mm 4mm;text-align:center;font-size:9pt;}
+  .hdp-count th{background:#f0f0f0;font-weight:bold;}
 }
 /* モバイル: ホーム日誌を縦並びに */
 @media (max-width: 768px) {
@@ -3975,16 +3940,7 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
-/* スマホで向き変更時に afterprint が誤発火するのを防ぐフラグ */
-let _orientationChanging=false;
-window.addEventListener('orientationchange',function(){
-  if(document.body.classList.contains('print-active')){
-    _orientationChanging=true;
-    setTimeout(function(){_orientationChanging=false;},1000);
-  }
-});
 window.addEventListener('afterprint',function(){
-  if(_orientationChanging) return;
   document.body.classList.remove('print-active');
   setTimeout(function(){
     if(document.body.classList.contains('print-active')) return;
