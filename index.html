@@ -581,7 +581,7 @@ select{
   .print-col-right{flex:1;display:flex;flex-direction:column;}
   .print-col-right-cell{padding:1.5mm 2mm;border-bottom:1pt solid #000;flex:1;}
   .print-col-right-cell:last-child{border-bottom:none;}
-  .print-episode{padding:1.5mm 2mm;min-height:12mm;}
+  .print-episode{padding:1.5mm 2mm;min-height:47mm;}/* 190mm×25% – 写真貼り付けスペース確保 */
   .print-col-label{font-size:7pt;color:#444;margin-bottom:0.5mm;display:block;}
   .print-col-value{font-size:8.5pt;line-height:1.4;white-space:pre-wrap;}
 
@@ -2982,6 +2982,7 @@ function doPrint(list){
   for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
   document.body.classList.add('print-active');
+  _isPrinting=true;
   setTimeout(()=>window.print(),200);
 }
 function printSingle(id){const e=entries.find(x=>x.id===id);if(e)doPrint([e]);}
@@ -3914,6 +3915,7 @@ function printHomeDiary(id) {
       </table>
     </div>`;
   document.body.classList.add('print-active');
+  _isPrinting=true;
   setTimeout(()=>window.print(),200);
 }
   function hdUpdateTotal() {
@@ -3941,13 +3943,25 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
+/* 印刷中フラグ – スマホで向き変更したときに afterprint が誤発火するのを防ぐ */
+let _isPrinting=false;
+let _orientChangedAt=0;
+window.addEventListener('orientationchange',function(){
+  if(!_isPrinting) return;
+  _orientChangedAt=Date.now();
+  /* 向き変更中も print-active を維持して印刷用画面を保持する */
+  document.body.classList.add('print-active');
+});
 window.addEventListener('afterprint',function(){
+  /* 向き変更から1500ms以内の afterprint はスマホの誤発火として無視 */
+  if(_isPrinting&&Date.now()-_orientChangedAt<1500) return;
+  _isPrinting=false;
   document.body.classList.remove('print-active');
   setTimeout(function(){
     if(document.body.classList.contains('print-active')) return;
     const pa=document.getElementById('print-area');
     if(pa) pa.innerHTML='';
-  },750);
+  },1000);
 });
 </script>
 
