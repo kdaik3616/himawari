@@ -611,6 +611,8 @@ select{
 /* PDFボタン: スマホのみ表示、PCでは非表示 */
 .pdf-btn-mobile{display:none!important;}
 @media(max-width:768px){.pdf-btn-mobile{display:inline-flex!important;}}
+/* 印刷ボタン: スマホでは非表示 */
+@media(max-width:768px){.print-btn-pc{display:none!important;}}
 
 /* モバイル: ホーム日誌を縦並びに */
 @media (max-width: 768px) {
@@ -1628,8 +1630,8 @@ select{
             <button class="btn-primary btn-sm" onclick="applyFilters()">🔍 検索</button>
             <button class="btn-secondary btn-sm" onclick="clearFilters()">リセット</button>
             <div style="margin-left:auto;display:flex;gap:8px;">
-              <button class="btn-secondary btn-sm" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
-              <button class="btn-secondary btn-sm pdf-btn-mobile" id="pdf-bulk-btn" style="display:none;" onclick="savePDFSelected()">📄 PDF保存</button>
+              <button class="btn-secondary btn-sm print-btn-pc" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
+              <button class="btn-secondary btn-sm" id="pdf-bulk-btn" style="display:none;" onclick="savePDFSelected()">📄 PDF保存</button>
             </div>
           </div>
           <div id="select-all-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
@@ -2661,7 +2663,7 @@ function renderEntryCard(e){
 const canPrint = isAdmin(currentUser) || e.staff === currentUser.name;
 const adminActions = `
     ${isAdmin(currentUser) || e.staff === currentUser.name
-        ? `<button class="btn-secondary btn-sm" onclick="printSingle(${e.id})">🖨</button><button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFSingle(${e.id})">📄</button>`
+        ? `<button class="btn-secondary btn-sm print-btn-pc" onclick="printSingle(${e.id})">🖨</button><button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFSingle(${e.id})">📄</button>`
         : ''}
     ${isAdmin(currentUser)
         ? `<button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`
@@ -3043,7 +3045,8 @@ function importJSON(ev){
 // UTIL
 // ==================================================
 function esc(s){if(!s)return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+let _toastTimer=null;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');if(_toastTimer)clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.classList.remove('show');_toastTimer=null;},2500);}
 
 document.addEventListener('click',e=>{
   const sb=document.getElementById('sidebar');
@@ -3838,7 +3841,7 @@ function renderHomeDiaryList() {
           ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
         </div>
         <div class="entry-actions">
-          <button class="btn-secondary btn-sm" onclick="printHomeDiary(${e.id})">🖨</button>
+          <button class="btn-secondary btn-sm print-btn-pc" onclick="printHomeDiary(${e.id})">🖨</button>
           <button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFHomeDiary(${e.id})">📄</button>
           ${isAdmin(currentUser)?`<button class="btn-danger btn-sm" onclick="deleteHomeDiary(${e.id})">削除</button>`:''}
         </div>
