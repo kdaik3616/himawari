@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
+  <script>
+  (function(){try{var s=localStorage.getItem('ls_session');if(s){var x=JSON.parse(s);if(x.userId&&x.loginAt&&Date.now()-x.loginAt<86400000)document.documentElement.classList.add('pre-auth');}}catch(e){}}());
+  </script>
   <!-- Firestore: SDK不要・REST APIで直接通信 -->
 
   <!-- PWA / ホーム画面対応 -->
@@ -238,6 +241,9 @@ body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--
 /* ログイン後はbody.logged-inで制御 */
 body.logged-in #login-screen{display:none!important;}
 body.logged-in #app{display:flex!important;}
+/* ちらつき防止: セッション確認中はログイン画面を隠す */
+html.pre-auth #login-screen{display:none!important;}
+html.pre-auth #app{display:flex!important;}
 
 .app-header{
   background:linear-gradient(90deg,var(--green-dark) 0%,var(--sidebar-active) 100%);
@@ -1929,10 +1935,11 @@ const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 function tryAutoLogin(){
   try{
     const saved = localStorage.getItem('ls_session');
-    if(!saved) return;
+    if(!saved){ document.documentElement.classList.remove('pre-auth'); return; }
     const session = JSON.parse(saved);
     if(!session.userId || !session.loginAt || Date.now() - session.loginAt > SESSION_MAX_MS){
       localStorage.removeItem('ls_session');
+      document.documentElement.classList.remove('pre-auth');
       return;
     }
     const existingUser = users.find(u => u.id === session.userId);
@@ -1940,6 +1947,7 @@ function tryAutoLogin(){
       currentUser = existingUser;
       document.querySelector('.login-box')?.classList.remove('pin-mode');
       document.body.classList.add('logged-in');
+      document.documentElement.classList.remove('pre-auth');
       onLogin();
     }
   }catch(e){ console.warn('Auto login error:', e); }
@@ -2117,8 +2125,17 @@ function onLogin(){
     updateNoticeBadge();
     document.body.classList.toggle('admin-user', isAdmin(u));
     updatePcAdminNav();
-    if(isAdmin(u)){showView('entries');cvFilter={year:null,staff:null};}
-    else showView('input');
+    cvFilter={year:null,staff:null};
+    const _validViews=['input','entries','files','notices','homediary'];
+    const _adminViews=['users','settings'];
+    const _savedView=localStorage.getItem('ls_lastView');
+    let _target;
+    if(_savedView&&(_validViews.includes(_savedView)||(isAdmin(u)&&_adminViews.includes(_savedView)))){
+      _target=_savedView;
+    }else{
+      _target=isAdmin(u)?'entries':'input';
+    }
+    showView(_target);
     // ★追加: 自動同期(8秒ごとのFirestoreポーリング)を開始
     startListeners();
     // ★追加: タブが再表示されたとき(別端末で見るためにアプリを開いた瞬間)に即座に同期
@@ -2365,7 +2382,8 @@ function filesOpenStaff(year,staff){
 // VIEW SWITCHING
 // ==================================================
 function showView(v){
-  currentView=v; // ★追加: 現在のビューを記憶（pollDataなどで参照される）
+  currentView=v;
+  try{localStorage.setItem('ls_lastView',v);}catch(e){}
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.snav-btn').forEach(x=>x.classList.remove('active'));
   const target=document.getElementById('view-'+v);
@@ -3497,10 +3515,13 @@ async function markNoticeRead(nid){
 
 async function deleteNotice(nid){
   if(!confirm('このお知らせを削除しますか？'))return;
+  notices = notices.filter(n => n.id !== nid);
+  saveLocal();
+  updateNoticeBadge();
+  renderNotices();
   try{
     await fsDelete(COLL_NOTICES,String(nid));
-    showToast('削除しました');
-  }catch(e){showToast('⚠️ エラー: '+e.message);}
+  }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
 }
 
 function updateNoticeBadge(){
