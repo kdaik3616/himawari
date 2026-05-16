@@ -537,7 +537,8 @@ select{
 /* ====== PRINT ====== */
 #print-area{display:none;}
 @media print{
-  @page{size:A4 landscape;margin:8mm;}
+  /* landscape 固定にしない: OSの印刷ダイアログで縦/横を切替えたときにレイアウトが飛びにくい */
+  @page{size:A4;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   /* 専用印刷モード(doPrint): print-areaのみ表示 */
   body.print-active>*:not(#print-area){display:none!important;}
@@ -2974,6 +2975,7 @@ function doPrint(list){
   const pages=[];
   for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
+  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
   document.body.classList.add('print-active');
   setTimeout(()=>window.print(),200);
 }
@@ -3906,8 +3908,9 @@ function printHomeDiary(id) {
         </tr>
       </table>
     </div>`;
+  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
   document.body.classList.add('print-active');
-  window.print();
+  setTimeout(()=>window.print(),200);
 }
   function hdUpdateTotal() {
   const t1 = parseInt(document.getElementById('hd-1530').value)||0;
@@ -3934,9 +3937,19 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
-// スマホ印刷: mobile-printクラスで縦向き1ページCSS適用
+/** 印刷プレビューでは innerWidth が用紙幅に変わるため、画面幅ベースで判定しない */
+function isMobilePrintUiDevice(){
+  try{
+    if(window.matchMedia('(max-device-width: 812px)').matches) return true;
+    const coarse=window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const shortEdge=Math.min(window.screen.width||0,window.screen.height||0);
+    if(coarse&&shortEdge>0&&shortEdge<=932) return true;
+  }catch(_){}
+  return false;
+}
+// スマホ印刷: mobile-printクラスで1ページ向けCSS適用（向き切替え後もクラスがブレないようデバイス判定のみ）
 window.addEventListener('beforeprint',function(){
-  if(window.screen.width<768||window.innerWidth<768) document.body.classList.add('mobile-print');
+  if(isMobilePrintUiDevice()) document.body.classList.add('mobile-print');
 });
 window.addEventListener('afterprint',function(){
   document.body.classList.remove('mobile-print','print-active');
