@@ -3735,11 +3735,11 @@ function canSeeNotice(u,n){
   // 管理者フラグを最優先確認（ログイン済みユーザーの管理者状態を反映）
   try{ if(localStorage.getItem('ls_adminFlag')==='1') return true; }catch(e){}
   if(isAdmin(u)) return true;
-  // 学年ベースの厳密フィルタリング
+  // 学年ベースフィルタリング
   const grade=getUserGrade(u);
+  if(!grade) return true;  // 学年未設定・フリーは全て閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
-  if(grade) return ranges.map(norm).some(r=>r===grade);
-  return false;
+  return ranges.map(norm).some(r=>r===grade);
 }
 
 function unreadNoticesForUser(u){
