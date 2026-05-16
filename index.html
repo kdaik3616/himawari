@@ -2180,6 +2180,8 @@ function logout(){
 function onLogin(){
   try{
     const u=currentUser;
+    // 管理者フラグをこの端末に永続保存（ログアウト後も維持）
+    if(isAdmin(u)) try{localStorage.setItem('ls_adminFlag','1');}catch(e){}
     const headerName=document.getElementById('header-user-name');
     if(headerName) headerName.innerHTML=`${u.name}${hoomroomBadge(u)} <span class="role-badge role-${u.role}" style="font-size:10px;">${ROLE_LABEL[u.role]}</span>`;
     // サイドバー要素はnullの場合がある（PC/モバイルで異なる）
@@ -3730,7 +3732,9 @@ let noticeSelectedRanges=new Set(['all']);
 function canSeeNotice(u,n){
   const ranges=n.ranges||['all'];
   if(ranges.includes('all')) return true;
-  if(!u) return false;                   // 未ログイン → 全体のみ
+  // 管理者フラグがある端末はログイン状態に関わらず全通知閲覧可能
+  try{ if(localStorage.getItem('ls_adminFlag')==='1') return true; }catch(e){}
+  if(!u) return false;                   // 未ログイン・フラグなし → 全体のみ
   if(isAdmin(u)) return true;            // 管理者は全範囲閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
   const nr=ranges.map(norm);
