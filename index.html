@@ -1253,7 +1253,35 @@ select{
   border-color:var(--green);
   color:var(--green-dark);
   font-weight:bold;
-}  
+}
+/* ====== スマホ印刷: 縦向き1ページ対応 ====== */
+@media print{
+  body.mobile-print #print-area{zoom:0.55;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body.mobile-print .print-page{page-break-after:avoid!important;page-break-inside:avoid!important;}
+  body.mobile-print .hdp-page{height:auto!important;page-break-inside:avoid!important;}
+  body.mobile-print .hdp-body{flex-direction:column!important;}
+  body.mobile-print .hdp-left,body.mobile-print .hdp-right{flex:none!important;width:100%!important;}
+}
+/* ====== 新着お知らせ通知ポップアップ ====== */
+.notice-alert{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  background:#fff;border:2px solid var(--orange);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.22);padding:16px 18px;
+  z-index:10000;width:calc(100% - 32px);max-width:380px;
+  animation:noticeSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes noticeSlideIn{
+  from{opacity:0;transform:translateX(-50%) translateY(-24px);}
+  to{opacity:1;transform:translateX(-50%) translateY(0);}
+}
+.notice-alert-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.notice-alert-badge{color:var(--orange);font-weight:700;font-size:13px;}
+.notice-alert-close{background:none;border:none;cursor:pointer;font-size:20px;color:#aaa;padding:0;line-height:1;}
+.notice-alert-title{font-weight:700;font-size:15px;margin-bottom:8px;color:var(--green-dark);}
+.notice-alert-preview{font-size:13px;color:#666;margin-bottom:12px;max-height:48px;overflow:hidden;line-height:1.5;}
+.notice-alert-actions{display:flex;gap:8px;justify-content:flex-end;}
+.notice-alert-view{background:var(--orange);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:700;}
+.notice-alert-dismiss{background:#f0f0f0;color:#555;border:none;border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -3241,9 +3269,15 @@ async function pollData(){
     if(nn.length>0||notices.length===0){
       nn.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       if(JSON.stringify(nn)!==JSON.stringify(notices)){
+        const prevIds=knownNoticeIds;
         notices=nn;
+        knownNoticeIds=new Set(nn.map(n=>n.id));
         updateNoticeBadge();
         if(currentView==='notices') renderNotices();
+        if(prevIds!==null&&currentUser){
+          const fresh=nn.filter(n=>!prevIds.has(n.id)&&canSeeNotice(currentUser,n)&&!(n.readBy||[]).find(r=>r.userId===currentUser.id));
+          if(fresh.length>0) showNoticeAlert(fresh[0]);
+        }
       }
     }
     // ホーム日誌の同期 ← 追加
@@ -3340,6 +3374,7 @@ function manualCheckUpdate() {
 // ==================================================
 // notices: use COLL_NOTICES
 let notices=[];
+let knownNoticeIds=null;
 let noticeSelectedRanges=new Set(['all']);
 
 // notices: use Firestore
@@ -3445,6 +3480,27 @@ function updateNoticeBadge(){
       badge.textContent=unread;
     } else if(badge) badge.remove();
   }
+}
+
+function showNoticeAlert(n){
+  const old=document.getElementById('notice-alert-popup');
+  if(old) old.remove();
+  const el=document.createElement('div');
+  el.id='notice-alert-popup';
+  el.className='notice-alert';
+  el.innerHTML=`
+    <div class="notice-alert-header">
+      <span class="notice-alert-badge">📢 新着お知らせ</span>
+      <button class="notice-alert-close" onclick="document.getElementById('notice-alert-popup').remove()">✕</button>
+    </div>
+    <div class="notice-alert-title">${esc(n.title)}</div>
+    <div class="notice-alert-preview">${esc(n.body)}</div>
+    <div class="notice-alert-actions">
+      <button class="notice-alert-dismiss" onclick="document.getElementById('notice-alert-popup').remove()">後で</button>
+      <button class="notice-alert-view" onclick="showView('notices');document.getElementById('notice-alert-popup')?.remove()">確認する</button>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{if(document.getElementById('notice-alert-popup')===el)el.remove();},10000);
 }
 
 const RANGE_LABEL={'all':'全体','senior':'年長','middle':'年中','junior':'年少','sesame':'セサミ'};
@@ -3864,6 +3920,14 @@ function hdToggleDutyChip(cb) {
   if (cb.checked) label.classList.add('selected');
   else label.classList.remove('selected');
 }
+
+// スマホ印刷: mobile-printクラスで縦向き1ページCSS適用
+window.addEventListener('beforeprint',function(){
+  if(window.screen.width<768||window.innerWidth<768) document.body.classList.add('mobile-print');
+});
+window.addEventListener('afterprint',function(){
+  document.body.classList.remove('mobile-print');
+});
 </script>
 
 <!-- Excel ダウンロード モーダル -->
