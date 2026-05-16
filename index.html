@@ -57,7 +57,8 @@
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+body{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;opacity:0;}
+body.ready{opacity:1;transition:opacity 100ms ease;}
 
 /* ====== LOGIN SCREEN ====== */
 #login-screen{
@@ -1935,11 +1936,12 @@ const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 function tryAutoLogin(){
   try{
     const saved = localStorage.getItem('ls_session');
-    if(!saved){ document.documentElement.classList.remove('pre-auth'); return; }
+    if(!saved){ document.documentElement.classList.remove('pre-auth'); document.body.classList.add('ready'); return; }
     const session = JSON.parse(saved);
     if(!session.userId || !session.loginAt || Date.now() - session.loginAt > SESSION_MAX_MS){
       localStorage.removeItem('ls_session');
       document.documentElement.classList.remove('pre-auth');
+      document.body.classList.add('ready');
       return;
     }
     const existingUser = users.find(u => u.id === session.userId);
@@ -1949,8 +1951,12 @@ function tryAutoLogin(){
       document.body.classList.add('logged-in');
       document.documentElement.classList.remove('pre-auth');
       onLogin();
+      requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready')));
+    }else{
+      document.documentElement.classList.remove('pre-auth');
+      document.body.classList.add('ready');
     }
-  }catch(e){ console.warn('Auto login error:', e); }
+  }catch(e){ console.warn('Auto login error:', e); document.body.classList.add('ready'); }
 }
 function loadLocal(){
   try{
