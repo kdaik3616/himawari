@@ -1,4 +1,5 @@
-const CACHE_NAME = 'himawari-v1';
+// デプロイ時にこの日付を更新すること → 旧キャッシュが自動削除される
+const CACHE_NAME = 'himawari-20260516';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,7 +7,7 @@ const STATIC_ASSETS = [
   './manifest.json'
 ];
 
-// インストール: 静的ファイルをキャッシュ
+// インストール: 静的ファイルをキャッシュして即座にアクティベート
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -15,7 +16,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// アクティベート: 古いキャッシュを削除
+// アクティベート: 旧バージョンのキャッシュを全削除
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -26,18 +27,23 @@ self.addEventListener('activate', event => {
   );
 });
 
-// フェッチ: ナビゲーションはネットワーク優先、静的リソースはキャッシュ優先
+// フェッチ: 自サイトのリクエストのみ処理
 self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // 同一オリジン以外はスルー
-  if (url.origin !== location.origin) return;
+  // 自サイト以外はスルー（Firebase・CDN等は直接通信）
+  if (url.origin !== self.location.origin) return;
 
-  // Firebase REST APIはキャッシュしない
-  if (url.hostname.includes('googleapis') || url.hostname.includes('firebase')) return;
+  // クエリパラメータ付き（更新確認・nocache）はネットワーク優先
+  if (url.search) {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
 
-  // HTMLナビゲーション: ネットワーク優先 → キャッシュフォールバック
+  // HTMLナビゲーション: ネットワーク優先 → オフライン時はキャッシュ
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
@@ -53,17 +59,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 静的リソース: キャッシュ優先 → ネットワークフォールバック
-  event.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req).then(res => {
-        if (res.ok && (url.pathname.endsWith('.png') || url.pathname.endsWith('.json'))) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, clone));
-        }
-        return res;
-      });
-    })
-  );
+  // 静的ファイル（画像・JSON）: キャッシュ優先 → ネットワークフォールバック
+  if (url.pathname.match(/\.(png|jpg|json|js|css|woff2?)$/)) {
+    event.respondWith(
+      caches.match(req).then(cached => {
+        if (cached) return cached;
+        return fetch(req).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone));
+          }
+          return res;
+        });
+      })
+    );
+  }
 });

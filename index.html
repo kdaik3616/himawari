@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
   <!-- Firestore: SDK不要・REST APIで直接通信 -->
 
   <!-- PWA / ホーム画面対応 -->
@@ -1924,12 +1925,17 @@ async function init(){
   setDefaultDate();
   tryAutoLogin();  
 }
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 function tryAutoLogin(){
   try{
-    const saved = localStorage.getItem('ls_currentUser');
+    const saved = sessionStorage.getItem('ls_session');
     if(!saved) return;
-    const savedUser = JSON.parse(saved);
-    const existingUser = users.find(u => u.id === savedUser.id);
+    const session = JSON.parse(saved);
+    if(!session.userId || !session.loginAt || Date.now() - session.loginAt > SESSION_MAX_MS){
+      sessionStorage.removeItem('ls_session');
+      return;
+    }
+    const existingUser = users.find(u => u.id === session.userId);
     if(existingUser){
       currentUser = existingUser;
       document.querySelector('.login-box')?.classList.remove('pin-mode');
@@ -2064,6 +2070,7 @@ function checkPin(){
   if(String(pinBuffer)===String(loginSelectedUser.pin)){
     currentUser = loginSelectedUser;
     pinBuffer = '';
+    sessionStorage.setItem('ls_session', JSON.stringify({userId: currentUser.id, loginAt: Date.now()}));
     document.querySelector('.login-box')?.classList.remove('pin-mode');
     document.body.classList.add('logged-in');
     onLogin();
@@ -2076,6 +2083,7 @@ function checkPin(){
 function logout(){
   currentUser=null;pinBuffer='';loginSelectedUser=null;
   localStorage.removeItem('ls_currentUser');
+  sessionStorage.removeItem('ls_session');
   document.querySelector('.login-box')?.classList.remove('pin-mode');
   document.body.classList.remove('logged-in');
   document.body.classList.remove('admin-user');
@@ -4081,7 +4089,7 @@ window.addEventListener('afterprint',function(){
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', () =>
-    navigator.serviceWorker.register('./service-worker.js')
+    navigator.serviceWorker.register('./service-worker.js?v=' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1'))
       .catch(e => console.warn('SW register failed:', e))
   );
 }
