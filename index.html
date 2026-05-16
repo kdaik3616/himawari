@@ -537,8 +537,8 @@ select{
 /* ====== PRINT ====== */
 #print-area{display:none;}
 @media print{
-  /* landscape 固定にしない: OSの印刷ダイアログで縦/横を切替えたときにレイアウトが飛びにくい */
-  @page{size:A4;margin:8mm;}
+  /* PC・スマホともに横向きA4で固定 */
+  @page{size:A4 landscape;margin:8mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   /* 専用印刷モード(doPrint): print-areaのみ表示（#print-areaの非表示ルールより後で上書きするため順序に注意） */
   body.print-active>*:not(#print-area){display:none!important;}
@@ -3975,9 +3975,17 @@ function hdToggleDutyChip(cb) {
   else label.classList.remove('selected');
 }
 
+/* スマホで向き変更時に afterprint が誤発火するのを防ぐフラグ */
+let _orientationChanging=false;
+window.addEventListener('orientationchange',function(){
+  if(document.body.classList.contains('print-active')){
+    _orientationChanging=true;
+    setTimeout(function(){_orientationChanging=false;},1000);
+  }
+});
 window.addEventListener('afterprint',function(){
+  if(_orientationChanging) return;
   document.body.classList.remove('print-active');
-  /* モバイルで印刷プレビュー内の向き変更時に afterprint が誤発火することがあるため、遅延クリア */
   setTimeout(function(){
     if(document.body.classList.contains('print-active')) return;
     const pa=document.getElementById('print-area');
