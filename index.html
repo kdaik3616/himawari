@@ -521,6 +521,14 @@ select{
 }
 .notice-footer{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .notice-range{font-size:11px;color:var(--warm-gray);}
+.notice-range-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.range-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.rbadge-all{background:var(--green-dark);color:white;}
+.rbadge-admin{background:var(--sun-dark);color:white;}
+.rbadge-senior{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
+.rbadge-middle{background:#e0f4f0;color:#1a6e5a;border:1px solid #80cdc0;}
+.rbadge-junior{background:var(--sun-light);color:var(--sun-dark);border:1px solid var(--sun);}
+.rbadge-sesame{background:#ffe8f0;color:#a0386a;border:1px solid #f0a8c0;}
 .notice-read-section{padding:10px 16px;background:var(--green-light);border-top:1px solid #A8D5AA;}
 .notice-read-title{font-size:11px;font-weight:700;color:var(--green-dark);letter-spacing:0.06em;margin-bottom:6px;}
 .notice-read-list{display:flex;flex-wrap:wrap;gap:6px;}
@@ -1743,12 +1751,13 @@ select{
                   <label class="field-label">公開範囲</label>
                   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;" id="notice-range-wrap">
                     <label class="range-opt selected" onclick="toggleRange(this,'all')"><span class="range-check">✓</span> 全体</label>
+                    <label class="range-opt" onclick="toggleRange(this,'admin')"><span class="range-check">✓</span> 管理</label>
                     <label class="range-opt" onclick="toggleRange(this,'senior')"><span class="range-check">✓</span> 年長</label>
                     <label class="range-opt" onclick="toggleRange(this,'middle')"><span class="range-check">✓</span> 年中</label>
                     <label class="range-opt" onclick="toggleRange(this,'junior')"><span class="range-check">✓</span> 年少</label>
-                    <label class="range-opt" onclick="toggleRange(this,'sesami')"><span class="range-check">✓</span> セサミ</label>
+                    <label class="range-opt" onclick="toggleRange(this,'sesame')"><span class="range-check">✓</span> セサミ</label>
                   </div>
-                  <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">園長・副園長・主任・副主任・フリーは全区分を閲覧できます</div>
+                  <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">管理者（園長・副園長・主任等）は全区分を閲覧できます</div>
                 </div>
                 <button class="btn-primary" onclick="postNotice()">📢 投稿する</button>
               </div>
@@ -3719,9 +3728,12 @@ let noticeSelectedRanges=new Set(['all']);
 // notices: use Firestore
 
 function canSeeNotice(u,n){
-  if(!n.ranges||n.ranges.includes('all')) return true;
-  if(NOTICE_FULL_ACCESS.includes(u.role)) return true;
-  return n.ranges.includes(u.role);
+  const ranges=n.ranges||['all'];
+  if(ranges.includes('all')) return true;
+  if(isAdmin(u)||NOTICE_FULL_ACCESS.includes(u.role)) return true;
+  const grade=getUserGrade(u);
+  const norm=r=>(r==='sesami'?'sesame':r);
+  return ranges.map(norm).some(r=>r===grade||r===u.role);
 }
 
 function unreadNoticesForUser(u){
@@ -3853,13 +3865,17 @@ function showNoticeAlert(n){
   setTimeout(()=>{if(document.getElementById('notice-alert-popup')===el)el.remove();},10000);
 }
 
-const RANGE_LABEL={'all':'全体','senior':'年長','middle':'年中','junior':'年少','sesame':'セサミ'};
+const RANGE_LABEL={'all':'全体','admin':'管理','senior':'年長','middle':'年中','junior':'年少','sesame':'セサミ','sesami':'セサミ'};
+const RANGE_BADGE_CSS={'all':'rbadge-all','admin':'rbadge-admin','senior':'rbadge-senior','middle':'rbadge-middle','junior':'rbadge-junior','sesame':'rbadge-sesame','sesami':'rbadge-sesame'};
+function rangesBadges(ranges){
+  return (ranges||['all']).map(r=>`<span class="range-badge ${RANGE_BADGE_CSS[r]||'rbadge-all'}">${RANGE_LABEL[r]||r}</span>`).join('');
+}
 
 function buildNoticeCard(n){
   const u=currentUser;
   const isRead=!!(n.readBy||[]).find(r=>r.userId===u.id);
   const canDelete=isAdmin(u)||n.authorId===u.id;
-  const ranges=(n.ranges||['all']).map(r=>RANGE_LABEL[r]||r).join('・');
+  const rangesHTML=rangesBadges(n.ranges);
 
   // 確認状況（全員に表示）
   const eligible=users.filter(x=>canSeeNotice(x,n));
@@ -3895,7 +3911,7 @@ function buildNoticeCard(n){
     </div>
     <div class="notice-body-text">${esc(n.body)}</div>
     <div class="notice-footer">
-      <span class="notice-range">📌 公開範囲：${ranges}</span>
+      <div class="notice-range-badges">${rangesHTML}</div>
       <div style="display:flex;gap:6px;">
         ${!isRead?`<button class="btn-confirm btn-sm" onclick="markNoticeRead(${n.id})">✔ 確認する</button>`:''}
         ${canDelete?`<button class="btn-danger btn-sm" onclick="deleteNotice(${n.id})">削除</button>`:''}
