@@ -1834,6 +1834,7 @@ const COLL_USERS   = 'h_users';
 const COLL_ENTRIES = 'h_entries';
 const COLL_NOTICES = 'h_notices';
 const COLL_HOMEDIARY = 'homediary';
+const COLL_CONFIG  = 'h_config';
 let pollInterval = null;
 
 // Firestore型変換
@@ -1897,6 +1898,17 @@ async function fsGetAll(coll){
   }catch(e){console.warn('fsGetAll error:',e);return[];}
 }
 
+async function fsGet(coll,docId){
+  try{
+    const token=await getFbAuthToken();
+    const headers=token?{'Authorization':`Bearer ${token}`}:{};
+    const r=await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{headers});
+    if(!r.ok) return null;
+    const d=await r.json();
+    return d.fields?fromFSDoc(d):null;
+  }catch(e){console.warn('fsGet error:',e);return null;}
+}
+
 async function fsSet(coll,docId,data){
   const token=await getFbAuthToken();
   const headers={'Content-Type':'application/json'};
@@ -1934,6 +1946,7 @@ let entries=[];
 let users=[];
 let currentUser=null; // logged-in user
 let cvFilter={year:null,staff:null};
+let loginOrder=null; // Firestoreから取得・キャッシュする並び順
 let viewMode='cards'; // ★追加: PC表示モード(cards/table/weekly)の初期値。未宣言だとReferenceErrorになる
 let currentView='entries'; // ★追加: 現在のビュー(showViewから書き込まれる)
 
@@ -1969,10 +1982,22 @@ async function init(){
     const fn=await fsGetAll(COLL_NOTICES);
     if(fn.length){ notices=fn; notices.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)); saveLocal(); }
   }catch(e){ console.warn('Firebase sync error:',e); }
+  // 並び順をFirestoreから取得（旧localStorage値があれば移行して削除）
+  try{
+    const orderDoc=await fsGet(COLL_CONFIG,'loginOrder');
+    if(orderDoc&&Array.isArray(orderDoc.order)){
+      loginOrder=orderDoc.order;
+    } else {
+      // localStorageに旧データがあれば移行
+      const legacy=localStorage.getItem('ls_loginOrder');
+      if(legacy){ loginOrder=JSON.parse(legacy); saveLoginOrder(loginOrder); }
+    }
+    localStorage.removeItem('ls_loginOrder');
+  }catch(e){ console.warn('loginOrder fetch error:',e); }
   if(!users.length) users=[{id:'u1',name:'園長',role:'principal',pin:'1234'}];
   renderLoginUsers();
   setDefaultDate();
-  tryAutoLogin();  
+  tryAutoLogin();
 }
 const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 function tryAutoLogin(){
@@ -2044,8 +2069,11 @@ function initDefaultUsers(){ initDefaultUsersDb(); }
 let loginSelectedUser=null;
 let pinBuffer='';
 
-function getLoginOrder(){ try{ const s=localStorage.getItem('ls_loginOrder'); if(s)return JSON.parse(s); }catch(e){} return null; }
-function saveLoginOrder(order){ try{ localStorage.setItem('ls_loginOrder',JSON.stringify(order)); }catch(e){} }
+function getLoginOrder(){ return loginOrder; }
+function saveLoginOrder(order){
+  loginOrder=order;
+  fsSet(COLL_CONFIG,'loginOrder',{order}).catch(e=>console.warn('saveLoginOrder error:',e));
+}
 function getOrderedUsers(){
   const order=getLoginOrder();
   if(!order) return null;
@@ -3593,12 +3621,21 @@ function renderEntriesWeekly(filtered){
 // ==================================================
 async function pollData(){
   try{
-    const [nu,ne,nn,nh]=await Promise.all([
+    const [nu,ne,nn,nh,orderDoc]=await Promise.all([
       fsGetAll(COLL_USERS),
       fsGetAll(COLL_ENTRIES),
       fsGetAll(COLL_NOTICES),
-      fsGetAll(COLL_HOMEDIARY)  // ← 追加
+      fsGetAll(COLL_HOMEDIARY),
+      fsGet(COLL_CONFIG,'loginOrder')
     ]);
+    // 並び順を同期（他端末で変更された場合に反映）
+    if(orderDoc&&Array.isArray(orderDoc.order)){
+      if(JSON.stringify(orderDoc.order)!==JSON.stringify(loginOrder)){
+        loginOrder=orderDoc.order;
+        renderLoginUsers();
+        if(currentView==='users') renderUsersTable();
+      }
+    }
     // Firebaseが空でもローカルデータを消さない（接続エラー対策）
     if(nu.length>0){
       if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
@@ -3633,7 +3670,7 @@ async function pollData(){
         }
       }
     }
-    // ホーム日誌の同期 ← 追加
+    // ホーム日誌の同期
     if(nh.length>0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
