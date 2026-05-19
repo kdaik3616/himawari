@@ -577,6 +577,11 @@ select{
 .notice-att-thumb{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
 .notice-att-icon{font-size:38px;line-height:1;width:84px;height:64px;display:flex;align-items:center;justify-content:center;background:var(--cream);border:1px solid var(--border);border-radius:8px;}
 .notice-att-name{font-size:10px;color:var(--text);text-align:center;word-break:break-all;max-width:88px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.upload-progress-wrap{margin-top:10px;display:none;}
+.upload-progress-wrap.active{display:block;}
+.upload-progress-label{font-size:12px;color:var(--text-light);margin-bottom:5px;}
+.upload-progress-track{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+.upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dark),var(--sidebar-active));border-radius:4px;transition:width 0.25s ease;width:0%;}
 
 /* ====== TOAST ====== */
 .toast{
@@ -1786,8 +1791,12 @@ select{
                     <span style="font-size:11px;color:var(--warm-gray);">JPG・PNG・GIF・PDF・Word・Excel（各10MB以内）</span>
                   </div>
                   <div id="notice-file-preview" class="nprev-area"></div>
+                  <div id="notice-upload-progress" class="upload-progress-wrap">
+                    <div class="upload-progress-label" id="notice-upload-label">アップロード中...</div>
+                    <div class="upload-progress-track"><div class="upload-progress-fill" id="notice-upload-fill"></div></div>
+                  </div>
                 </div>
-                <button class="btn-primary" onclick="postNotice()">📢 投稿する</button>
+                <button class="btn-primary" id="notice-post-btn" onclick="postNotice()">📢 投稿する</button>
               </div>
             </div>
           </div>
@@ -1863,7 +1872,9 @@ const COLL_ENTRIES = 'h_entries';
 const COLL_NOTICES = 'h_notices';
 const COLL_HOMEDIARY = 'homediary';
 const COLL_CONFIG  = 'h_config';
-const FB_STORAGE_BASE = `https://firebasestorage.googleapis.com/v0/b/${FB_PROJECT}.appspot.com/o`;
+const FB_STORAGE_HOST = 'https://firebasestorage.googleapis.com/v0/b';
+const FB_STORAGE_BUCKETS = [`${FB_PROJECT}.appspot.com`,`${FB_PROJECT}.firebasestorage.app`];
+let _storageBucket = null;
 let pollInterval = null;
 
 // Firestore型変換
@@ -3822,10 +3833,14 @@ function toggleNoticeForm(){
 }
 
 async function compressImage(file){
-  return new Promise(resolve=>{
+  // GIFはアニメーションが消えるので圧縮しない
+  if(file.type==='image/gif') return file;
+  return new Promise((resolve,reject)=>{
     const reader=new FileReader();
+    reader.onerror=()=>resolve(file); // 読み込み失敗時は元ファイルをそのまま使う
     reader.onload=e=>{
       const img=new Image();
+      img.onerror=()=>resolve(file);
       img.onload=()=>{
         const MAX=1280;
         let w=img.width,h=img.height;
@@ -3835,8 +3850,17 @@ async function compressImage(file){
         }
         const canvas=document.createElement('canvas');
         canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        canvas.toBlob(blob=>resolve(new File([blob],file.name,{type:'image/jpeg'})),'image/jpeg',0.8);
+        const ctx=canvas.getContext('2d');
+        if(!ctx){resolve(file);return;}
+        ctx.drawImage(img,0,0,w,h);
+        const outType=file.type==='image/png'?'image/png':'image/jpeg';
+        const quality=file.type==='image/png'?1:0.8;
+        canvas.toBlob(blob=>{
+          if(!blob){resolve(file);return;}
+          const ext=outType==='image/png'?'png':'jpg';
+          const name=file.name.replace(/\.[^.]+$/,'')+'.'+ext;
+          resolve(new File([blob],name,{type:outType}));
+        },outType,quality);
       };
       img.src=e.target.result;
     };
@@ -3844,23 +3868,73 @@ async function compressImage(file){
   });
 }
 
-async function uploadFileToStorage(file,noticeId){
+function _storageErrMsg(status,body){
+  if(status===0) return 'ネットワークエラー（CORS設定またはオフラインを確認）';
+  if(status===400){
+    if(body&&body.includes('does not exist')) return 'バケットが存在しません（Firebase Storage未有効化の可能性）';
+    return 'リクエストエラー(400) — ファイル名や形式を確認してください';
+  }
+  if(status===401) return '認証エラー(401) — 再ログインしてください';
+  if(status===403) return 'アクセス拒否(403) — Firebase StorageのRulesでwrite許可が必要です';
+  if(status===404) return 'バケットが見つかりません(404) — Firebase Storageが有効か確認してください';
+  if(status===413) return 'ファイルが大きすぎます(413)';
+  return `アップロードエラー(${status})`;
+}
+
+function _doStorageUpload(file,path,bucket,token,onProgress){
+  return new Promise((resolve,reject)=>{
+    const url=`${FB_STORAGE_HOST}/${bucket}/o?name=${encodeURIComponent(path)}&key=${FB_KEY}`;
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST',url);
+    xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');
+    if(token) xhr.setRequestHeader('Authorization',`Bearer ${token}`);
+    xhr.upload.onprogress=e=>{
+      if(e.lengthComputable&&onProgress) onProgress(Math.round(e.loaded/e.total*100));
+    };
+    xhr.onload=()=>{
+      const body=xhr.responseText||'';
+      if(xhr.status>=200&&xhr.status<300){
+        try{
+          const meta=JSON.parse(body);
+          const dlToken=(meta.downloadTokens||'').split(',')[0];
+          const encodedPath=encodeURIComponent(path);
+          resolve({
+            name:file.name,
+            url:`${FB_STORAGE_HOST}/${bucket}/o/${encodedPath}?alt=media&token=${dlToken}`,
+            type:file.type||'application/octet-stream',
+            size:file.size,
+            path,bucket
+          });
+        }catch(e){reject(new Error('レスポンス解析エラー'));}
+      }else{
+        const err=new Error(_storageErrMsg(xhr.status,body));
+        err.httpStatus=xhr.status;
+        reject(err);
+      }
+    };
+    xhr.onerror=()=>{const e=new Error(_storageErrMsg(0,''));e.httpStatus=0;reject(e);};
+    xhr.send(file);
+  });
+}
+
+async function uploadFileToStorage(file,noticeId,onProgress){
   const token=await getFbAuthToken();
   const path=`notices/${noticeId}/${file.name}`;
-  const r=await fetch(
-    `${FB_STORAGE_BASE}?name=${encodeURIComponent(path)}`,
-    {method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',...(token?{'Authorization':`Bearer ${token}`}:{})},body:file}
-  );
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const meta=await r.json();
-  const token2=(meta.downloadTokens||'').split(',')[0];
-  return {
-    name:file.name,
-    url:`${FB_STORAGE_BASE}/${encodeURIComponent(path)}?alt=media&token=${token2}`,
-    type:file.type||'application/octet-stream',
-    size:file.size,
-    path
-  };
+  // バケット名を自動判定（.appspot.com → .firebasestorage.app の順で試す）
+  const buckets=_storageBucket?[_storageBucket]:FB_STORAGE_BUCKETS;
+  let lastErr;
+  for(const bucket of buckets){
+    try{
+      const result=await _doStorageUpload(file,path,bucket,token,onProgress);
+      _storageBucket=bucket; // 成功したバケットをキャッシュ
+      return result;
+    }catch(e){
+      lastErr=e;
+      if(e.httpStatus===404) continue; // 次のバケット名を試す
+      throw e; // 404以外（403/401等）はリトライしない
+    }
+  }
+  throw lastErr||new Error('バケットが見つかりません');
 }
 
 function _fileIcon(file){
@@ -3961,15 +4035,35 @@ async function postNotice(){
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
   // upload attached files
   if(noticeSelectedFiles.length){
-    showToast('📎 ファイルをアップロード中...');
-    for(const item of noticeSelectedFiles){
+    const progWrap=document.getElementById('notice-upload-progress');
+    const progFill=document.getElementById('notice-upload-fill');
+    const progLabel=document.getElementById('notice-upload-label');
+    const postBtn=document.getElementById('notice-post-btn');
+    if(progWrap) progWrap.classList.add('active');
+    if(postBtn){postBtn.disabled=true;postBtn.textContent='📎 アップロード中...';}
+    const total=noticeSelectedFiles.length;
+    let failed=0;
+    for(let i=0;i<total;i++){
+      const item=noticeSelectedFiles[i];
+      if(progLabel) progLabel.textContent=`アップロード中 ${i+1}/${total}：${item.file.name}`;
       try{
         let file=item.file;
         if(file.type.startsWith('image/')) file=await compressImage(file);
-        const att=await uploadFileToStorage(file,id);
+        const att=await uploadFileToStorage(file,id,(pct)=>{
+          const overall=Math.round((i*100+pct)/total);
+          if(progFill) progFill.style.width=overall+'%';
+        });
         n.attachments.push(att);
-      }catch(e){showToast(`⚠️ ${item.file.name} のアップロードに失敗しました`);}
+      }catch(e){
+        failed++;
+        console.error('Upload error:',item.file.name,e);
+        showToast(`⚠️ ${item.file.name}：${e.message}`);
+      }
     }
+    if(progFill) progFill.style.width='100%';
+    if(progWrap) setTimeout(()=>progWrap.classList.remove('active'),600);
+    if(postBtn){postBtn.disabled=false;postBtn.textContent='📢 投稿する';}
+    if(failed===total&&total>0){showToast('⚠️ ファイルのアップロードに全件失敗しました');return;}
   }
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
