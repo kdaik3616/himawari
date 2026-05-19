@@ -1909,6 +1909,16 @@ function fromFSDoc(doc){ return doc.fields?fromFSFields(doc.fields):{}; }
 // ===== Firebase 匿名認証トークン管理 =====
 let _fbAuthToken=null;
 let _fbAuthExpiry=0;
+let _fbConnErrShown=false; // 接続エラートーストを1回だけ表示するフラグ
+
+// Firebase接続エラーを1回だけユーザーに通知する
+function _showFbConnError(msg){
+  if(_fbConnErrShown) return;
+  _fbConnErrShown=true;
+  console.error('[Firebase]',msg);
+  // showToastが未定義の場合（初期化前）はコンソールのみ
+  if(typeof showToast==='function') showToast('⚠️ '+msg,6000);
+}
 
 async function getFbAuthToken(){
   if(_fbAuthToken&&Date.now()<_fbAuthExpiry) return _fbAuthToken;
@@ -1922,9 +1932,35 @@ async function getFbAuthToken(){
     if(d.idToken){
       _fbAuthToken=d.idToken;
       _fbAuthExpiry=Date.now()+((Number(d.expiresIn)||3600)*1000)-60000;
+      _fbConnErrShown=false; // 認証成功でエラーフラグをリセット
       return _fbAuthToken;
     }
-  }catch(e){console.warn('Firebase Auth error:',e);}
+    if(d.error){
+      const code=String(d.error.message||'');
+      if(code.includes('UNAUTHORIZED_DOMAIN')||code.includes('BLOCKED_FUNCTION')){
+        _showFbConnError(
+          'Firebase Auth: このドメインが未承認です。Firebase Console → Authentication → Settings → 承認済みドメイン に ' +
+          location.hostname + ' を追加してください'
+        );
+      } else if(code.includes('API_KEY_HTTP_REFERRER_BLOCKED')){
+        _showFbConnError(
+          'Firebase Auth: APIキーのリファラ制限でブロックされています。Firebase Console → プロジェクトの設定 → APIキー のリファラ許可リストに ' +
+          location.hostname + ' を追加してください'
+        );
+      } else {
+        console.warn('[Firebase Auth] error:',d.error);
+      }
+    }
+  }catch(e){
+    if(e instanceof TypeError){
+      // net::ERR_NAME_NOT_RESOLVED / Failed to fetch など
+      _showFbConnError(
+        'googleapis.com への接続に失敗しました。ネットワーク・DNS・広告ブロッカーを確認してください ('+e.message+')'
+      );
+    }else{
+      console.warn('[Firebase Auth] error:',e);
+    }
+  }
   return null;
 }
 
@@ -1933,9 +1969,25 @@ async function fsGetAll(coll){
     const token=await getFbAuthToken();
     const headers=token?{'Authorization':`Bearer ${token}`}:{};
     const r=await fetch(`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=500`,{headers});
+    if(!r.ok){
+      const body=await r.json().catch(()=>({}));
+      const msg=(body.error&&body.error.message)||String(r.status);
+      if(r.status===401||r.status===403){
+        _showFbConnError('Firestore読み取り拒否('+r.status+'): '+msg+' — Firestoreルールを確認してください');
+      }
+      console.warn('[fsGetAll]',coll,r.status,msg);
+      return [];
+    }
     const d=await r.json();
     return (d.documents||[]).map(fromFSDoc);
-  }catch(e){console.warn('fsGetAll error:',e);return[];}
+  }catch(e){
+    if(e instanceof TypeError){
+      _showFbConnError('Firestoreへの接続に失敗しました。ネットワーク・DNS・広告ブロッカーを確認してください');
+    }else{
+      console.warn('[fsGetAll] error:',coll,e);
+    }
+    return [];
+  }
 }
 
 async function fsGet(coll,docId){
@@ -1953,10 +2005,26 @@ async function fsSet(coll,docId,data){
   const token=await getFbAuthToken();
   const headers={'Content-Type':'application/json'};
   if(token) headers['Authorization']=`Bearer ${token}`;
-  await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{
-    method:'PATCH',headers,
-    body:JSON.stringify({fields:toFSFields(data)})
-  });
+  let r;
+  try{
+    r=await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}`,{
+      method:'PATCH',headers,
+      body:JSON.stringify({fields:toFSFields(data)})
+    });
+  }catch(e){
+    if(e instanceof TypeError){
+      throw new Error('Firestoreへの接続に失敗しました（ネットワークエラー）');
+    }
+    throw e;
+  }
+  if(!r.ok){
+    const body=await r.json().catch(()=>({}));
+    const msg=(body.error&&body.error.message)||String(r.status);
+    if(r.status===401||r.status===403){
+      throw new Error('Firestore書き込み拒否('+r.status+'): '+msg+' — Firestoreルールを確認してください');
+    }
+    throw new Error('Firestore書き込みエラー('+r.status+'): '+msg);
+  }
 }
 
 async function fsDelete(coll,docId){
@@ -3440,7 +3508,7 @@ function importJSON(ev){
 // ==================================================
 function esc(s){if(!s)return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
 let _toastTimer=null;
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');if(_toastTimer)clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.classList.remove('show');_toastTimer=null;},2500);}
+function showToast(msg,duration){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');if(_toastTimer)clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.classList.remove('show');_toastTimer=null;},duration||2500);}
 
 document.addEventListener('click',e=>{
   const sb=document.getElementById('sidebar');
@@ -3869,16 +3937,16 @@ async function compressImage(file){
 }
 
 function _storageErrMsg(status,body){
-  if(status===0) return 'ネットワークエラー（CORS設定またはオフラインを確認）';
+  if(status===0) return 'Storage CORSエラー: cors.json を gsutil で適用してください（gsutil cors set cors.json gs://'+FB_PROJECT+'.appspot.com）';
   if(status===400){
-    if(body&&body.includes('does not exist')) return 'バケットが存在しません（Firebase Storage未有効化の可能性）';
-    return 'リクエストエラー(400) — ファイル名や形式を確認してください';
+    if(body&&body.includes('does not exist')) return 'Storageバケットが存在しません。Firebase Console → Storage を有効化してください';
+    return 'Storageリクエストエラー(400) — ファイル名や形式を確認してください';
   }
-  if(status===401) return '認証エラー(401) — 再ログインしてください';
-  if(status===403) return 'アクセス拒否(403) — Firebase StorageのRulesでwrite許可が必要です';
-  if(status===404) return 'バケットが見つかりません(404) — Firebase Storageが有効か確認してください';
+  if(status===401) return 'Storage認証エラー(401) — 再ログインしてください';
+  if(status===403) return 'Storageアクセス拒否(403) — storage.rules で write: if request.auth != null を設定してください';
+  if(status===404) return 'Storageバケットが見つかりません(404) — Firebase Storage が有効か確認してください';
   if(status===413) return 'ファイルが大きすぎます(413)';
-  return `アップロードエラー(${status})`;
+  return `Storageアップロードエラー(${status})`;
 }
 
 function _doStorageUpload(file,path,bucket,token,onProgress){
