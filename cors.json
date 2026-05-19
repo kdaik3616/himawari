@@ -1,8 +1,0 @@
-[
-  {
-    "origin": ["https://kdaik3616.github.io", "http://localhost"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length"],
-    "maxAgeSeconds": 3600
-  }
-]

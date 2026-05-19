@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://cdnjs.cloudflare.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://firebasestorage.googleapis.com https://cdnjs.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
   <script>
   (function(){try{var s=localStorage.getItem('ls_session');if(s){var x=JSON.parse(s);if(x.userId&&x.loginAt&&Date.now()-x.loginAt<86400000)document.documentElement.classList.add('pre-auth');}}catch(e){}}());
   </script>
@@ -560,28 +560,6 @@ select{
 .range-opt.selected{background:var(--sun-light);border-color:var(--sun);color:var(--sun-dark);}
 .range-check{font-size:12px;opacity:0;transition:opacity 0.15s;}
 .range-opt.selected .range-check{opacity:1;}
-
-/* ====== NOTICE FILE ATTACHMENT ====== */
-.notice-file-zone{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
-.notice-file-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;background:var(--cream);border:2px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-light);transition:all 0.2s;}
-.notice-file-btn:hover{background:var(--sun-light);border-color:var(--sun);color:var(--sun-dark);}
-.nprev-area{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
-.nprev-item{position:relative;background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;width:100px;gap:4px;}
-.nprev-thumb{width:80px;height:80px;object-fit:cover;border-radius:6px;}
-.nprev-icon{font-size:36px;line-height:1;width:80px;height:60px;display:flex;align-items:center;justify-content:center;}
-.nprev-name{font-size:10px;color:var(--text);text-align:center;word-break:break-all;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.nprev-remove{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:var(--orange);color:white;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;}
-.notice-attachments{padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border);}
-.notice-att-item{display:flex;flex-direction:column;align-items:center;cursor:pointer;gap:4px;width:90px;transition:opacity 0.15s;}
-.notice-att-item:hover{opacity:0.75;}
-.notice-att-thumb{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
-.notice-att-icon{font-size:38px;line-height:1;width:84px;height:64px;display:flex;align-items:center;justify-content:center;background:var(--cream);border:1px solid var(--border);border-radius:8px;}
-.notice-att-name{font-size:10px;color:var(--text);text-align:center;word-break:break-all;max-width:88px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.upload-progress-wrap{margin-top:10px;display:none;}
-.upload-progress-wrap.active{display:block;}
-.upload-progress-label{font-size:12px;color:var(--text-light);margin-bottom:5px;}
-.upload-progress-track{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
-.upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dark),var(--sidebar-active));border-radius:4px;transition:width 0.25s ease;width:0%;}
 
 /* ====== TOAST ====== */
 .toast{
@@ -1781,22 +1759,7 @@ select{
                   </div>
                   <div style="font-size:11px;color:var(--warm-gray);margin-top:6px;">管理者（園長・副園長・主任等）は全区分を閲覧できます</div>
                 </div>
-                <div class="field-group" style="margin-bottom:14px;">
-                  <label class="field-label">ファイル添付</label>
-                  <div class="notice-file-zone">
-                    <label for="notice-file-input" class="notice-file-btn">📎 ファイルを選択</label>
-                    <input type="file" id="notice-file-input" multiple
-                      accept="image/jpeg,image/png,image/gif,application/pdf,.docx,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                      style="display:none;" onchange="handleNoticeFileSelect(event)">
-                    <span style="font-size:11px;color:var(--warm-gray);">JPG・PNG・GIF・PDF・Word・Excel（各10MB以内）</span>
-                  </div>
-                  <div id="notice-file-preview" class="nprev-area"></div>
-                  <div id="notice-upload-progress" class="upload-progress-wrap">
-                    <div class="upload-progress-label" id="notice-upload-label">アップロード中...</div>
-                    <div class="upload-progress-track"><div class="upload-progress-fill" id="notice-upload-fill"></div></div>
-                  </div>
-                </div>
-                <button class="btn-primary" id="notice-post-btn" onclick="postNotice()">📢 投稿する</button>
+                <button class="btn-primary" onclick="postNotice()">📢 投稿する</button>
               </div>
             </div>
           </div>
@@ -1872,9 +1835,6 @@ const COLL_ENTRIES = 'h_entries';
 const COLL_NOTICES = 'h_notices';
 const COLL_HOMEDIARY = 'homediary';
 const COLL_CONFIG  = 'h_config';
-const FB_STORAGE_HOST = 'https://firebasestorage.googleapis.com/v0/b';
-const FB_STORAGE_BUCKETS = [`${FB_PROJECT}.appspot.com`,`${FB_PROJECT}.firebasestorage.app`];
-let _storageBucket = null;
 let pollInterval = null;
 
 // Firestore型変換
@@ -3880,7 +3840,6 @@ function manualCheckUpdate() {
 let notices=[];
 let knownNoticeIds=null;
 let noticeSelectedRanges=new Set(['all']);
-let noticeSelectedFiles=[];
 
 // notices: use Firestore
 
@@ -3904,165 +3863,6 @@ function toggleNoticeForm(){
   const open=body.style.display!=='none';
   body.style.display=open?'none':'block';
   tog.textContent=open?'▼ 開く':'▲ 閉じる';
-}
-
-async function compressImage(file){
-  // GIFはアニメーションが消えるので圧縮しない
-  if(file.type==='image/gif') return file;
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>resolve(file); // 読み込み失敗時は元ファイルをそのまま使う
-    reader.onload=e=>{
-      const img=new Image();
-      img.onerror=()=>resolve(file);
-      img.onload=()=>{
-        const MAX=1280;
-        let w=img.width,h=img.height;
-        if(w>MAX||h>MAX){
-          if(w>=h){h=Math.round(h*MAX/w);w=MAX;}
-          else{w=Math.round(w*MAX/h);h=MAX;}
-        }
-        const canvas=document.createElement('canvas');
-        canvas.width=w;canvas.height=h;
-        const ctx=canvas.getContext('2d');
-        if(!ctx){resolve(file);return;}
-        ctx.drawImage(img,0,0,w,h);
-        const outType=file.type==='image/png'?'image/png':'image/jpeg';
-        const quality=file.type==='image/png'?1:0.8;
-        canvas.toBlob(blob=>{
-          if(!blob){resolve(file);return;}
-          const ext=outType==='image/png'?'png':'jpg';
-          const name=file.name.replace(/\.[^.]+$/,'')+'.'+ext;
-          resolve(new File([blob],name,{type:outType}));
-        },outType,quality);
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function _storageErrMsg(status,body){
-  if(status===0) return 'Storage CORSエラー: cors.json を gsutil で適用してください（gsutil cors set cors.json gs://'+FB_PROJECT+'.appspot.com）';
-  if(status===400){
-    if(body&&body.includes('does not exist')) return 'Storageバケットが存在しません。Firebase Console → Storage を有効化してください';
-    return 'Storageリクエストエラー(400) — ファイル名や形式を確認してください';
-  }
-  if(status===401) return 'Storage認証エラー(401) — 再ログインしてください';
-  if(status===403) return 'Storageアクセス拒否(403) — storage.rules で write: if request.auth != null を設定してください';
-  if(status===404) return 'Storageバケットが見つかりません(404) — Firebase Storage が有効か確認してください';
-  if(status===413) return 'ファイルが大きすぎます(413)';
-  return `Storageアップロードエラー(${status})`;
-}
-
-function _doStorageUpload(file,path,bucket,token,onProgress){
-  return new Promise((resolve,reject)=>{
-    const url=`${FB_STORAGE_HOST}/${bucket}/o?name=${encodeURIComponent(path)}&key=${FB_KEY}`;
-    const xhr=new XMLHttpRequest();
-    xhr.open('POST',url);
-    xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');
-    if(token) xhr.setRequestHeader('Authorization',`Bearer ${token}`);
-    xhr.upload.onprogress=e=>{
-      if(e.lengthComputable&&onProgress) onProgress(Math.round(e.loaded/e.total*100));
-    };
-    xhr.onload=()=>{
-      const body=xhr.responseText||'';
-      if(xhr.status>=200&&xhr.status<300){
-        try{
-          const meta=JSON.parse(body);
-          const dlToken=(meta.downloadTokens||'').split(',')[0];
-          const encodedPath=encodeURIComponent(path);
-          resolve({
-            name:file.name,
-            url:`${FB_STORAGE_HOST}/${bucket}/o/${encodedPath}?alt=media&token=${dlToken}`,
-            type:file.type||'application/octet-stream',
-            size:file.size,
-            path,bucket
-          });
-        }catch(e){reject(new Error('レスポンス解析エラー'));}
-      }else{
-        const err=new Error(_storageErrMsg(xhr.status,body));
-        err.httpStatus=xhr.status;
-        reject(err);
-      }
-    };
-    xhr.onerror=()=>{const e=new Error(_storageErrMsg(0,''));e.httpStatus=0;reject(e);};
-    xhr.send(file);
-  });
-}
-
-async function uploadFileToStorage(file,noticeId,onProgress){
-  const token=await getFbAuthToken();
-  const path=`notices/${noticeId}/${file.name}`;
-  // バケット名を自動判定（.appspot.com → .firebasestorage.app の順で試す）
-  const buckets=_storageBucket?[_storageBucket]:FB_STORAGE_BUCKETS;
-  let lastErr;
-  for(const bucket of buckets){
-    try{
-      const result=await _doStorageUpload(file,path,bucket,token,onProgress);
-      _storageBucket=bucket; // 成功したバケットをキャッシュ
-      return result;
-    }catch(e){
-      lastErr=e;
-      if(e.httpStatus===404) continue; // 次のバケット名を試す
-      throw e; // 404以外（403/401等）はリトライしない
-    }
-  }
-  throw lastErr||new Error('バケットが見つかりません');
-}
-
-function _fileIcon(file){
-  if(file.type==='application/pdf') return '📄';
-  if(file.type.includes('word')||file.name.match(/\.docx?$/i)) return '📝';
-  if(file.type.includes('excel')||file.type.includes('spreadsheet')||file.name.match(/\.xlsx?$/i)) return '📊';
-  return '📎';
-}
-
-function renderFilePreview(){
-  const el=document.getElementById('notice-file-preview');
-  if(!el) return;
-  if(!noticeSelectedFiles.length){el.innerHTML='';return;}
-  el.innerHTML=noticeSelectedFiles.map((item,i)=>{
-    if(item.file.type.startsWith('image/')){
-      return `<div class="nprev-item"><img class="nprev-thumb" src="${item.dataUrl}" alt="${esc(item.file.name)}"><div class="nprev-name">${esc(item.file.name)}</div><button class="nprev-remove" onclick="removeSelectedFile(${i})">✕</button></div>`;
-    }
-    return `<div class="nprev-item"><div class="nprev-icon">${_fileIcon(item.file)}</div><div class="nprev-name">${esc(item.file.name)}</div><button class="nprev-remove" onclick="removeSelectedFile(${i})">✕</button></div>`;
-  }).join('');
-}
-
-async function handleNoticeFileSelect(event){
-  const MAX_SIZE=10*1024*1024;
-  const MAX_FILES=5;
-  const files=Array.from(event.target.files||[]);
-  for(const file of files){
-    if(file.size>MAX_SIZE){showToast(`⚠️ ${file.name} は10MB超過`);continue;}
-    if(noticeSelectedFiles.length>=MAX_FILES){showToast('⚠️ 添付は最大5件まで');break;}
-    const item={file};
-    if(file.type.startsWith('image/')){
-      item.dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
-    }
-    noticeSelectedFiles.push(item);
-  }
-  event.target.value='';
-  renderFilePreview();
-}
-
-function removeSelectedFile(index){
-  noticeSelectedFiles.splice(index,1);
-  renderFilePreview();
-}
-
-function buildAttachmentsHTML(attachments){
-  if(!attachments||!attachments.length) return '';
-  const items=attachments.map(att=>{
-    const isImage=att.type&&att.type.startsWith('image/');
-    if(isImage){
-      return `<div class="notice-att-item" onclick="window.open('${att.url}','_blank')"><img class="notice-att-thumb" src="${att.url}" alt="${esc(att.name)}" loading="lazy"><div class="notice-att-name">${esc(att.name)}</div></div>`;
-    }
-    const icon=att.type==='application/pdf'?'📄':att.name.match(/\.docx?$/i)?'📝':att.name.match(/\.xlsx?$/i)?'📊':'📎';
-    return `<div class="notice-att-item" onclick="window.open('${att.url}','_blank')"><div class="notice-att-icon">${icon}</div><div class="notice-att-name">${esc(att.name)}</div></div>`;
-  }).join('');
-  return `<div class="notice-attachments">${items}</div>`;
 }
 
 function toggleRange(el,val){
@@ -4094,57 +3894,20 @@ async function postNotice(){
   const body=document.getElementById('notice-body').value.trim();
   if(!title||!body){showToast('⚠️ タイトルと内容を入力してください');return;}
   const ranges=noticeSelectedRanges.size?[...noticeSelectedRanges]:['all'];
-  const id=Date.now();
   const n={
-    id,
+    id:Date.now(),
     title,body,ranges,
     authorId:currentUser.id,
     authorName:currentUser.name,
     authorRole:currentUser.role,
     createdAt:new Date().toISOString(),
-    readBy:[],
-    attachments:[]
+    readBy:[]
   };
-  // auto-mark as read by poster
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
-  // upload attached files
-  if(noticeSelectedFiles.length){
-    const progWrap=document.getElementById('notice-upload-progress');
-    const progFill=document.getElementById('notice-upload-fill');
-    const progLabel=document.getElementById('notice-upload-label');
-    const postBtn=document.getElementById('notice-post-btn');
-    if(progWrap) progWrap.classList.add('active');
-    if(postBtn){postBtn.disabled=true;postBtn.textContent='📎 アップロード中...';}
-    const total=noticeSelectedFiles.length;
-    let failed=0;
-    for(let i=0;i<total;i++){
-      const item=noticeSelectedFiles[i];
-      if(progLabel) progLabel.textContent=`アップロード中 ${i+1}/${total}：${item.file.name}`;
-      try{
-        let file=item.file;
-        if(file.type.startsWith('image/')) file=await compressImage(file);
-        const att=await uploadFileToStorage(file,id,(pct)=>{
-          const overall=Math.round((i*100+pct)/total);
-          if(progFill) progFill.style.width=overall+'%';
-        });
-        n.attachments.push(att);
-      }catch(e){
-        failed++;
-        console.error('Upload error:',item.file.name,e);
-        showToast(`⚠️ ${item.file.name}：${e.message}`);
-      }
-    }
-    if(progFill) progFill.style.width='100%';
-    if(progWrap) setTimeout(()=>progWrap.classList.remove('active'),600);
-    if(postBtn){postBtn.disabled=false;postBtn.textContent='📢 投稿する';}
-    if(failed===total&&total>0){showToast('⚠️ ファイルのアップロードに全件失敗しました');return;}
-  }
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
     document.getElementById('notice-title').value='';
     document.getElementById('notice-body').value='';
-    noticeSelectedFiles=[];
-    renderFilePreview();
     toggleNoticeForm();
     showToast('📢 お知らせを投稿しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
@@ -4263,7 +4026,6 @@ function buildNoticeCard(n){
       ${isRead?`<span class="notice-badge-read">✓ 確認済み</span>`:`<span class="notice-badge-unread">● 未確認</span>`}
     </div>
     <div class="notice-body-text">${esc(n.body)}</div>
-    ${buildAttachmentsHTML(n.attachments)}
     <div class="notice-footer">
       <div class="notice-range-badges">${rangesHTML}</div>
       <div style="display:flex;gap:6px;">
