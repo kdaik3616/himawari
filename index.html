@@ -2070,7 +2070,10 @@ const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
 function isAdmin(u){return u&&['principal','vice_principal','head_teacher'].includes(u.role);}
-function canViewEntry(u,entry){return isAdmin(u)||entry.staff===u.name;}
+// 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
+function canViewEntry(u,entry){
+  return u&&(['principal','vice_principal'].includes(u.role)||entry.staff===u.name);
+}
 
 // ==================================================
 // INIT
@@ -2452,7 +2455,8 @@ function getFY(dateStr){
 }
 function getYears(){return[...new Set(entries.map(e=>e.fiscalYear))].filter(Boolean).sort((a,b)=>b-a);}
 function getStaffForYear(year){
-  if(!isAdmin(currentUser)){return[currentUser.name];}
+  // 一覧で全スタッフを選べるのは園長・副園長のみ
+  if(!['principal','vice_principal'].includes(currentUser.role)){return[currentUser.name];}
   return[...new Set(entries.filter(e=>e.fiscalYear===year).map(e=>e.staff))].sort();
 }
 function countE(year,staff){
@@ -3033,6 +3037,8 @@ async function addComment(eid){
 // ==================================================
 async function deleteEntry(id){
   if(!confirm('この記録を削除しますか？'))return;
+  const _de=entries.find(e=>e.id===id);
+  if(!_de||!canViewEntry(currentUser,_de)){showToast('⚠️ 閲覧権限がありません');return;}
   entries=entries.filter(e=>e.id!==id);
   saveLocal();
   renderYearTree();
@@ -3458,7 +3464,7 @@ function doPrint(list){
   _isPrinting=true;
   setTimeout(()=>window.print(),200);
 }
-function printSingle(id){const e=entries.find(x=>x.id===id);if(e)doPrint([e]);}
+function printSingle(id){const e=entries.find(x=>x.id===id);if(!e||!canViewEntry(currentUser,e)){showToast('⚠️ 閲覧権限がありません');return;}doPrint([e]);}
 function printSelected(){
   const ids=[...document.querySelectorAll('.echeck:checked')].map(c=>+c.dataset.id);
   if(!ids.length){showToast('印刷する記録を選択してください');return;}
@@ -4660,7 +4666,8 @@ function _savePDF(innerHTML,filename){
     .catch(()=>{document.body.removeChild(wrap);showToast('⚠️ PDF生成に失敗しました');});
 }
 function savePDFSingle(id){
-  const e=entries.find(x=>x.id===id);if(!e)return;
+  const e=entries.find(x=>x.id===id);
+  if(!e||!canViewEntry(currentUser,e)){showToast('⚠️ 閲覧権限がありません');return;}
   _savePDF(`<div class="print-page">${buildPrintDay(e)}</div>`,`保育日誌_${e.date}.pdf`);
 }
 function savePDFSelected(){
