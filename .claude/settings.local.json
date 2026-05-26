@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git *)",
+      "Bash(Get-ChildItem -Recurse -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "Bash(powershell *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(firebase --version)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(firebase login:list *)",
+      "Bash(gsutil version *)",
+      "Bash(pip3 --version)",
+      "Bash(gcloud --version)",
+      "Bash(firebase storage *)",
+      "Bash(pip3 install *)",
+      "Bash(firebase storage:bucket --help)",
+      "Bash(firebase --help)",
+      "Bash(python3 -c \"import gsutil; print\\('ok'\\)\")",
+      "Bash(python3 -m gsutil version)",
+      "PowerShell(winget *)",
+      "Bash(Remove-Item *)",
+      "PowerShell(Remove-Item *)",
+      "Bash(git rm *)"
+    ]
+  }
+}
