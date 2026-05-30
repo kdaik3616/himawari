@@ -2091,6 +2091,8 @@ const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
 function isAdmin(u){return u&&['principal','advisor','vice_principal'].includes(u.role);}
+// エクスポート・バックアップ権限：管理者＋フリー
+function canExport(u){ return u && ['principal','advisor','vice_principal','free'].includes(u.role); }
 // 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
 function canViewEntry(u,entry){
   return u&&(['principal','advisor','vice_principal'].includes(u.role)||entry.staff===u.name);
@@ -2674,7 +2676,11 @@ function showView(v){
   }
   if(v==='notices') renderNotices();
   if(v==='users') renderUsersTable();
-  if(v==='settings') renderDataStats();
+  if(v==='settings'){
+    const card = document.getElementById('staff-management-card');
+    if(card) card.style.display = canExport(currentUser) ? '' : 'none';
+    renderDataStats();
+  }
   if(v==='files'){
     // PC用：トップバーアクションをクリア
     const ta=document.getElementById('topbar-actions');
@@ -3527,6 +3533,7 @@ function printSelected(){
 // EXPORT / IMPORT
 // ==================================================
 function exportJSON(){
+  if(!canExport(currentUser)){showToast('⚠️ 権限がありません');return;}
   const data=JSON.stringify({entries,users,notices},null,2);
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
@@ -3535,6 +3542,7 @@ function exportJSON(){
   showToast('📥 バックアップをダウンロードしました');
 }
 function importJSON(ev){
+  if(!canExport(currentUser)){showToast('⚠️ 権限がありません');return;}
   const f=ev.target.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=async e=>{
@@ -4356,6 +4364,7 @@ init();
 
 // ===== Excel ダウンロード機能 =====
 function openExcelModal(){
+  if(!canExport(currentUser)){showToast('⚠️ 権限がありません');return;}
   const today=new Date();
   const firstDay=new Date(today.getFullYear(),today.getMonth(),1);
   document.getElementById('excel-date-from').value=firstDay.toISOString().split('T')[0];
