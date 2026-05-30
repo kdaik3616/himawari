@@ -2142,8 +2142,9 @@ function loadLocal(){
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
+    if(h){ homeDiaryEntries=JSON.parse(h); homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date)); }
     // 見つかったデータを新キーで保存（統一）
-    if(u||e||n) saveLocal();
+    if(u||e||n||h) saveLocal();
   }catch(_){}
 }
 function saveLocal(){
@@ -3800,6 +3801,7 @@ function startListeners(){
   renderYearTabs();
   if(currentView==='entries') renderEntries();
   if(currentView==='notices') renderNotices();
+  if(currentView==='homediary') renderHomeDiaryList();
   populateYearSelect();
   if(isAdmin(currentUser)) populateStaffSearchSelect();
   // Firebaseと非同期同期（失敗してもOK）
