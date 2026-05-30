@@ -3819,20 +3819,8 @@ async function pollData(){
     // ホーム日誌の同期
     if(nh.length>0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
-      // ローカルの下書きはFirestoreのデータで上書きしない
-      const merged = nh.map(remote => {
-        const local = homeDiaryEntries.find(l => l.id === remote.id);
-        if (local && local.isDraft) return local; // 下書き優先
-        return remote;
-      });
-      // ローカルにしかない下書きも保持
-      const localDrafts = homeDiaryEntries.filter(l =>
-        l.isDraft && !nh.find(r => r.id === l.id)
-      );
-      const finalEntries = [...merged, ...localDrafts];
-      finalEntries.sort((a,b)=>b.date.localeCompare(a.date));
-      if(JSON.stringify(finalEntries)!==JSON.stringify(homeDiaryEntries)){
-        homeDiaryEntries=finalEntries;
+      if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
+        homeDiaryEntries=nh;
         saveLocal();
         if(currentView==='homediary') renderHomeDiaryList();
       }
@@ -4537,7 +4525,114 @@ function _buildHdEntry() {
   };
 }
 
-// 下書き保存：localStorageのみ・Firestoreには送らない
+function _resetHdForm() {
+  // 日付・天気・担当者
+  document.getElementById('hd-date').value    = '';
+  document.getElementById('hd-weather').value = '';
+  document.getElementById('hd-early').value   = '';
+  document.getElementById('hd-late').value    = '';
+  document.getElementById('hd-snack').value   = '';
+
+  // 活動記録テキストエリア（時間帯ごと）
+  HD_TIMES_SPLIT.forEach(t => {
+    const key = t.replace(':','-');
+    ['junior','middle','senior'].forEach(g => {
+      const el = document.getElementById(`hd-${key}-${g}`);
+      if (el) el.value = '';
+    });
+  });
+  HD_TIMES_MERGED.forEach(t => {
+    const key = t.replace(':','-');
+    const el = document.getElementById(`hd-${key}-all`);
+    if (el) el.value = '';
+  });
+
+  // チェックボックス（担当者）
+  document.querySelectorAll('.hd-duty-check-early, .hd-duty-check-late')
+    .forEach(cb => cb.checked = false);
+
+  // その他テキストエリア
+  ['hd-shared','hd-from-school','hd-from-parents','hd-lost','hd-children-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // 人数
+  ['hd-1530','hd-1630','hd-1730','hd-1830','hd-total-manual'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // 合計表示リセット
+  const elAuto = document.getElementById('hd-total-auto');
+  if (elAuto) elAuto.textContent = '-';
+}
+
+function loadDraftToForm(id) {
+  const e = homeDiaryEntries.find(x => x.id === id);
+  if (!e) return;
+
+  hdShowTab('input');
+  hdInitActivityTable();
+
+  // 少し待ってからフォームに値を流し込む（DOM生成を待つ）
+  setTimeout(() => {
+    document.getElementById('hd-date').value    = e.date    || '';
+    document.getElementById('hd-weather').value = e.weather || '';
+    document.getElementById('hd-early').value   = e.earlyStaff || '';
+    document.getElementById('hd-late').value    = e.lateStaff  || '';
+    document.getElementById('hd-snack').value   = e.snackMenu  || '';
+
+    HD_TIMES_SPLIT.forEach(t => {
+      const key = t.replace(':','-');
+      const act = e.activities?.[t] || {};
+      ['junior','middle','senior'].forEach(g => {
+        const el = document.getElementById(`hd-${key}-${g}`);
+        if (el) el.value = act[g] || '';
+      });
+    });
+    HD_TIMES_MERGED.forEach(t => {
+      const key = t.replace(':','-');
+      const act = e.activities?.[t] || {};
+      const el = document.getElementById(`hd-${key}-all`);
+      if (el) el.value = act.all || '';
+    });
+
+    // チェックボックス（担当者）
+    const early = (e.earlyDutyStaff || '').split(',').filter(Boolean);
+    const late  = (e.lateDutyStaff  || '').split(',').filter(Boolean);
+    document.querySelectorAll('.hd-duty-check-early')
+      .forEach(cb => cb.checked = early.includes(cb.value));
+    document.querySelectorAll('.hd-duty-check-late')
+      .forEach(cb => cb.checked = late.includes(cb.value));
+
+    ['hd-shared','hd-from-school','hd-from-parents','hd-lost','hd-children-notes'].forEach(id => {
+      const field = id.replace('hd-','');
+      const key = {
+        'shared':'sharedInfo','from-school':'fromSchool',
+        'from-parents':'fromParents','lost':'lostItems',
+        'children-notes':'childrenNotes'
+      }[field];
+      const el = document.getElementById(id);
+      if (el && key) el.value = e[key] || '';
+    });
+
+    ['hd-1530','hd-1630','hd-1730','hd-1830','hd-total-manual'].forEach(id => {
+      const key = {
+        'hd-1530':'headcount1530','hd-1630':'headcount1630',
+        'hd-1730':'headcount1730','hd-1830':'headcount1830',
+        'hd-total-manual':'headcountManual'
+      }[id];
+      const el = document.getElementById(id);
+      if (el && key) el.value = e[key] || '';
+    });
+
+    hdUpdateTotal();
+    showToast('📝 下書きを読み込みました');
+  }, 100);
+}
+
+// 下書き保存：Firestoreにも保存して全員に共有
 function saveDraftHomeDiary() {
   const entry = _buildHdEntry();
   if (!entry) return;
@@ -4546,7 +4641,10 @@ function saveDraftHomeDiary() {
   homeDiaryEntries.push(entry);
   homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
-  showToast('📝 下書きを保存しました');
+  // Firestoreにも保存して全員に共有
+  fsSet(COLL_HOMEDIARY, String(entry.id), entry)
+    .then(()=>showToast('📝 下書きを保存しました（全員に共有されました）'))
+    .catch(()=>showToast('⚠️ 下書きの共有に失敗しました'));
 }
 
 // 確定保存：localStorageとFirestore両方に保存
@@ -4558,8 +4656,11 @@ function saveHomeDiaryEntry() {
   homeDiaryEntries.push(entry);
   homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
-  fsSet(COLL_HOMEDIARY, String(entry.id), entry).catch(e=>console.warn('Firebase save error:',e));
-  showToast('💾 保存しました！');
+  fsSet(COLL_HOMEDIARY, String(entry.id), entry)
+    .catch(e=>console.warn('Firebase save error:',e));
+  // フォームをまっさらにリセット
+  _resetHdForm();
+  showToast('💾 確定保存しました');
   hdShowTab('list');
 }
 
@@ -4589,6 +4690,7 @@ function renderHomeDiaryList() {
           ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
         </div>
         <div class="entry-actions">
+          ${e.isDraft ? `<button class="btn-secondary btn-sm" onclick="loadDraftToForm(${e.id})">✏️ 編集</button>` : ''}
           <button class="btn-secondary btn-sm print-btn-pc" onclick="printHomeDiary(${e.id})">🖨</button>
           <button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFHomeDiary(${e.id})">📄</button>
           ${isAdmin(currentUser)?`<button class="btn-danger btn-sm" onclick="deleteHomeDiary(${e.id})">削除</button>`:''}
