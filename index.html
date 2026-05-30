@@ -2344,7 +2344,41 @@ function checkPin(){
   }
 }
 
+// ==================================================
+// 自動ログアウト（30分無操作）
+// ==================================================
+const AUTO_LOGOUT_MS = 30 * 60 * 1000; // 30分
+let autoLogoutTimer = null;
+
+function resetAutoLogoutTimer() {
+  if (!document.body.classList.contains('logged-in')) return;
+  clearTimeout(autoLogoutTimer);
+  autoLogoutTimer = setTimeout(() => {
+    logout();
+    // ログアウト後にメッセージを表示
+    setTimeout(() => {
+      const err = document.getElementById('login-error') || document.querySelector('.login-error');
+      if (err) {
+        err.textContent = '30分間操作がなかったため、自動でログアウトしました。';
+        err.style.display = 'block';
+      }
+    }, 100);
+  }, AUTO_LOGOUT_MS);
+}
+
+function startAutoLogoutWatcher() {
+  ['mousemove','mousedown','click','touchstart','keypress','scroll'].forEach(ev => {
+    document.addEventListener(ev, resetAutoLogoutTimer, { passive: true });
+  });
+  resetAutoLogoutTimer();
+}
+
+function stopAutoLogoutWatcher() {
+  clearTimeout(autoLogoutTimer);
+}
+
 function logout(){
+  stopAutoLogoutWatcher();
   currentUser=null;pinBuffer='';loginSelectedUser=null;
   localStorage.removeItem('ls_currentUser');
   localStorage.removeItem('ls_session');
@@ -2362,6 +2396,7 @@ function logout(){
 // POST-LOGIN SETUP
 // ==================================================
 function onLogin(){
+  startAutoLogoutWatcher();
   try{
     const u=currentUser;
     // 管理者フラグをログインユーザーに合わせて更新
