@@ -1665,7 +1665,10 @@ select{
         </div>
 
         <div style="text-align:center;margin-top:20px;">
-          <button class="btn-primary" onclick="saveHomeDiaryEntry()">💾 保存する</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="saveDraftHomeDiary()">📝 下書き保存</button>
+            <button class="btn-primary" onclick="saveHomeDiaryEntry()">💾 確定保存</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3788,14 +3791,27 @@ async function pollData(){
     if(nn.length>0||notices.length===0){
       const nn_clean=nn.filter(n=>n.title&&n.authorName&&n.createdAt);
       nn_clean.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-      if(JSON.stringify(nn_clean)!==JSON.stringify(notices)){
+
+      // ローカルのreadByをFirestoreのデータにマージ（競合防止）
+      // ローカルにある既読情報はFirestoreより新しい可能性があるため保持する
+      const merged = nn_clean.map(remote => {
+        const local = notices.find(l => l.id === remote.id);
+        if (!local) return remote;
+        // ローカルとリモートのreadByを合体（重複除去）
+        const remoteIds = new Set((remote.readBy || []).map(r => r.userId));
+        const localOnly = (local.readBy || []).filter(r => !remoteIds.has(r.userId));
+        return { ...remote, readBy: [...(remote.readBy || []), ...localOnly] };
+      });
+
+      if(JSON.stringify(merged)!==JSON.stringify(notices)){
         const prevIds=knownNoticeIds;
-        notices=nn_clean;
-        knownNoticeIds=new Set(nn_clean.map(n=>n.id));
+        notices=merged;
+        knownNoticeIds=new Set(merged.map(n=>n.id));
+        saveLocal();
         updateNoticeBadge();
         if(currentView==='notices') renderNotices();
         if(prevIds!==null&&currentUser){
-          const fresh=nn_clean.filter(n=>!prevIds.has(n.id)&&canSeeNotice(currentUser,n)&&!(n.readBy||[]).find(r=>r.userId===currentUser.id));
+          const fresh=merged.filter(n=>!prevIds.has(n.id)&&canSeeNotice(currentUser,n)&&!(n.readBy||[]).find(r=>r.userId===currentUser.id));
           if(fresh.length>0) showNoticeAlert(fresh[0]);
         }
       }
@@ -3803,8 +3819,20 @@ async function pollData(){
     // ホーム日誌の同期
     if(nh.length>0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
-      if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
-        homeDiaryEntries=nh;
+      // ローカルの下書きはFirestoreのデータで上書きしない
+      const merged = nh.map(remote => {
+        const local = homeDiaryEntries.find(l => l.id === remote.id);
+        if (local && local.isDraft) return local; // 下書き優先
+        return remote;
+      });
+      // ローカルにしかない下書きも保持
+      const localDrafts = homeDiaryEntries.filter(l =>
+        l.isDraft && !nh.find(r => r.id === l.id)
+      );
+      const finalEntries = [...merged, ...localDrafts];
+      finalEntries.sort((a,b)=>b.date.localeCompare(a.date));
+      if(JSON.stringify(finalEntries)!==JSON.stringify(homeDiaryEntries)){
+        homeDiaryEntries=finalEntries;
         saveLocal();
         if(currentView==='homediary') renderHomeDiaryList();
       }
@@ -4048,15 +4076,52 @@ async function postNotice(){
 }
 
 async function markNoticeRead(nid){
-  const n=notices.find(x=>x.id===nid);
-  if(!n||n.readBy.find(r=>r.userId===currentUser.id)) return;
-  const newReadBy=[...(n.readBy||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()}];
-  n.readBy=newReadBy;
-  updateNoticeBadge();
-  if(currentView==='notices') renderNotices();
-  try{
-    await fsUpdateField(COLL_NOTICES,String(nid),'readBy',newReadBy);
-  }catch(e){showToast('⚠️ エラー: '+e.message);}
+  const n = notices.find(x => x.id === nid);
+  if (!n) return;
+  // すでにローカルで確認済みならスキップ
+  if ((n.readBy || []).find(r => r.userId === currentUser.id)) return;
+
+  // ボタンを即時無効化（二重タップ防止）
+  const btn = document.querySelector(`#ncard-${nid} .btn-confirm`);
+  if (btn) { btn.disabled = true; btn.textContent = '処理中…'; }
+
+  try {
+    // Firestoreから最新のreadByを取得してマージ（競合防止）
+    const latest = await fsGet(COLL_NOTICES, String(nid));
+    const latestReadBy = latest?.readBy || [];
+
+    // すでに最新データでも確認済みならスキップ
+    if (latestReadBy.find(r => r.userId === currentUser.id)) {
+      // ローカルを最新に合わせる
+      n.readBy = latestReadBy;
+      saveLocal();
+      updateNoticeBadge();
+      if (currentView === 'notices') renderNotices();
+      return;
+    }
+
+    // 自分の確認を追加
+    const newReadBy = [
+      ...latestReadBy,
+      { userId: currentUser.id, userName: currentUser.name, role: currentUser.role, readAt: new Date().toISOString() }
+    ];
+
+    // Firestoreに書き込み
+    await fsUpdateField(COLL_NOTICES, String(nid), 'readBy', newReadBy);
+
+    // ローカルも更新
+    n.readBy = newReadBy;
+    saveLocal();
+    updateNoticeBadge();
+    if (currentView === 'notices') renderNotices();
+    showToast('✅ 確認しました');
+
+  } catch(e) {
+    showToast('⚠️ 確認の保存に失敗しました。もう一度タップしてください');
+    // ボタンを再度有効化
+    if (btn) { btn.disabled = false; btn.textContent = '✔ 確認する'; }
+    console.error('markNoticeRead error:', e);
+  }
 }
 
 async function deleteNotice(nid){
@@ -4427,9 +4492,10 @@ function hdShowTab(tab) {
   if (tab==='input') hdInitActivityTable();
 }
 
-function saveHomeDiaryEntry() {
+// 現在のフォーム入力からentryオブジェクトを組み立てる共通処理
+function _buildHdEntry() {
   const date = document.getElementById('hd-date').value;
-  if (!date) { alert('日付を入力してください'); return; }
+  if (!date) { alert('日付を入力してください'); return null; }
   const weekdays = ['日','月','火','水','木','金','土'];
   const activities = {};
   HD_TIMES_SPLIT.forEach(t => {
@@ -4442,30 +4508,26 @@ function saveHomeDiaryEntry() {
   });
   HD_TIMES_MERGED.forEach(t => {
     const key = t.replace(':','-');
-    activities[t] = {
-      all: document.getElementById(`hd-${key}-all`)?.value||''
-    };
+    activities[t] = { all: document.getElementById(`hd-${key}-all`)?.value||'' };
   });
-
   const existing = homeDiaryEntries.find(e=>e.date===date);
   const docId = String(existing?.id || Date.now());
-
-  const entry = {
+  return {
     id: Number(docId),
     date,
     weekday: weekdays[new Date(date).getDay()],
-    weather:       document.getElementById('hd-weather').value,
-    earlyStaff:    document.getElementById('hd-early').value,
-    lateStaff:     document.getElementById('hd-late').value,
+    weather:        document.getElementById('hd-weather').value,
+    earlyStaff:     document.getElementById('hd-early').value,
+    lateStaff:      document.getElementById('hd-late').value,
     activities,
-    snackMenu:     document.getElementById('hd-snack').value,
+    snackMenu:      document.getElementById('hd-snack').value,
     earlyDutyStaff: [...document.querySelectorAll('.hd-duty-check-early:checked')].map(cb=>cb.value).join(','),
     lateDutyStaff:  [...document.querySelectorAll('.hd-duty-check-late:checked')].map(cb=>cb.value).join(','),
-    sharedInfo:    document.getElementById('hd-shared').value,
-    fromSchool:    document.getElementById('hd-from-school').value,
-    fromParents:   document.getElementById('hd-from-parents').value,
-    lostItems:     document.getElementById('hd-lost').value,
-    childrenNotes: document.getElementById('hd-children-notes').value,
+    sharedInfo:     document.getElementById('hd-shared').value,
+    fromSchool:     document.getElementById('hd-from-school').value,
+    fromParents:    document.getElementById('hd-from-parents').value,
+    lostItems:      document.getElementById('hd-lost').value,
+    childrenNotes:  document.getElementById('hd-children-notes').value,
     headcount1530:  document.getElementById('hd-1530').value,
     headcount1630:  document.getElementById('hd-1630').value,
     headcount1730:  document.getElementById('hd-1730').value,
@@ -4473,17 +4535,31 @@ function saveHomeDiaryEntry() {
     headcountManual:document.getElementById('hd-total-manual').value,
     savedAt: new Date().toISOString()
   };
+}
 
-  // ローカルに即時保存
+// 下書き保存：localStorageのみ・Firestoreには送らない
+function saveDraftHomeDiary() {
+  const entry = _buildHdEntry();
+  if (!entry) return;
+  entry.isDraft = true;
   homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==entry.id);
   homeDiaryEntries.push(entry);
   homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
+  showToast('📝 下書きを保存しました');
+}
 
-  // Firebaseにも非同期で同期
+// 確定保存：localStorageとFirestore両方に保存
+function saveHomeDiaryEntry() {
+  const entry = _buildHdEntry();
+  if (!entry) return;
+  entry.isDraft = false;
+  homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==entry.id);
+  homeDiaryEntries.push(entry);
+  homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
+  saveLocal();
   fsSet(COLL_HOMEDIARY, String(entry.id), entry).catch(e=>console.warn('Firebase save error:',e));
-
-  alert('💾 保存しました！');
+  showToast('💾 保存しました！');
   hdShowTab('list');
 }
 
@@ -4507,6 +4583,7 @@ function renderHomeDiaryList() {
       <div class="entry-card-header">
         <div class="entry-meta">
           <span class="entry-date">${fmtDate(e.date)}</span>
+          ${e.isDraft ? '<span style="font-size:11px;padding:2px 8px;background:#fff3cd;border:1px solid #ffc107;border-radius:10px;color:#856404;">📝 下書き</span>' : ''}
           <span class="badge badge-sage">${esc(e.weather)}</span>
           ${e.earlyStaff?`<span style="font-size:12px;color:#e53;">早番:${esc(e.earlyStaff)}</span>`:''}
           ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
