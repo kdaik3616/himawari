@@ -2349,7 +2349,7 @@ function checkPin(){
 // ==================================================
 const AUTO_LOGOUT_MS = 30 * 60 * 1000;
 let autoLogoutTimer = null;
-let lastActiveAt = Date.now();
+let lastActiveAt = 0;
 
 function resetAutoLogoutTimer() {
   if (!document.body.classList.contains('logged-in')) return;
@@ -2377,14 +2377,19 @@ function startAutoLogoutWatcher() {
   // スマホ対応：画面復帰時に経過時間をチェック
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      if (Date.now() - lastActiveAt >= AUTO_LOGOUT_MS) {
+      if (!document.body.classList.contains('logged-in')) return;
+      const elapsed = Date.now() - lastActiveAt;
+      if (elapsed >= AUTO_LOGOUT_MS) {
         triggerAutoLogout();
       } else {
-        resetAutoLogoutTimer();
+        clearTimeout(autoLogoutTimer);
+        autoLogoutTimer = setTimeout(triggerAutoLogout, AUTO_LOGOUT_MS - elapsed);
       }
     }
   });
-  resetAutoLogoutTimer();
+  lastActiveAt = Date.now();
+  clearTimeout(autoLogoutTimer);
+  autoLogoutTimer = setTimeout(triggerAutoLogout, AUTO_LOGOUT_MS);
 }
 
 function stopAutoLogoutWatcher() {
