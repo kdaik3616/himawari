@@ -2049,10 +2049,6 @@ let loginOrder=null; // Firestoreから取得・キャッシュする並び順
 let viewMode='cards'; // ★追加: PC表示モード(cards/table/weekly)の初期値。未宣言だとReferenceErrorになる
 let currentView='entries'; // ★追加: 現在のビュー(showViewから書き込まれる)
 
-// STEP4: スマホバックグラウンド自動ログアウト設定
-const AUTO_LOGOUT_MINUTES = 30;
-let _bgHiddenAt = 0; // バックグラウンド移行時刻
-
 const ROLE_LABEL={
   'principal':'園長','vice_principal':'副園長',
   'head_teacher':'主任','asst_head':'副主任',
@@ -2064,8 +2060,7 @@ const NOTICE_FULL_ACCESS=['principal','vice_principal','head_teacher','asst_head
 const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
-// STEP5修正: 主任(head_teacher)を管理者から除外。閲覧は自分の記録のみ（canViewEntryと一致）
-function isAdmin(u){return u&&['principal','vice_principal'].includes(u.role);}
+function isAdmin(u){return u&&['principal','vice_principal','head_teacher'].includes(u.role);}
 // 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
 function canViewEntry(u,entry){
   return u&&(['principal','vice_principal'].includes(u.role)||entry.staff===u.name);
@@ -2085,11 +2080,9 @@ async function init(){
     if(fu.length){ users=fu; saveLocal(); }
     else if(!users.length){ await initDefaultUsersDb(); }
     const fe=await fsGetAll(COLL_ENTRIES);
-    // Bug②修正: usersをFirestoreから取得できなかった場合はsaveLocalを呼ばない
-    // （initDefaultUsersDb後のsaveLocalがls_usersを[u1]だけで上書きするのを防ぐ）
-    if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); if(fu.length) saveLocal(); }
+    if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); }
     const fn=await fsGetAll(COLL_NOTICES);
-    if(fn.length){ notices=fn; notices.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)); if(fu.length) saveLocal(); }
+    if(fn.length){ notices=fn; notices.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)); saveLocal(); }
   }catch(e){ console.warn('Firebase sync error:',e); }
   // 並び順をFirestoreから取得（旧localStorage値があれば移行して削除）
   try{
@@ -2149,10 +2142,8 @@ function loadLocal(){
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
-    // ★修正①: ホーム日誌の読み込みが抜けていた
-    if(h){ homeDiaryEntries=JSON.parse(h); homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date)); }
     // 見つかったデータを新キーで保存（統一）
-    if(u||e||n||h) saveLocal();
+    if(u||e||n) saveLocal();
   }catch(_){}
 }
 function saveLocal(){
@@ -2355,24 +2346,9 @@ function onLogin(){
     showView(_target);
     // ★追加: 自動同期(8秒ごとのFirestoreポーリング)を開始
     startListeners();
-    // STEP4: visibilitychange でバックグラウンド時刻を記録し、
-    //         スマホで30分以上経過した場合は自動ログアウト。
-    //         PCブラウザ(maxTouchPoints===0)では自動ログアウトしない。
+    // ★追加: タブが再表示されたとき(別端末で見るためにアプリを開いた瞬間)に即座に同期
     document.addEventListener('visibilitychange', ()=>{
-      if(document.hidden){
-        _bgHiddenAt = Date.now();
-      } else {
-        if(currentUser){
-          const elapsed = Date.now() - _bgHiddenAt;
-          const isMobile = navigator.maxTouchPoints > 0;
-          if(isMobile && _bgHiddenAt > 0 && elapsed >= AUTO_LOGOUT_MINUTES * 60 * 1000){
-            logout();
-            return;
-          }
-          pollData();
-        }
-        _bgHiddenAt = 0;
-      }
+      if(!document.hidden && currentUser){ pollData(); }
     });
     // ★追加: ネットワーク復帰時にも即同期
     window.addEventListener('online', ()=>{ if(currentUser) pollData(); });
@@ -2997,22 +2973,10 @@ async function confirmEntry(eid){
   const e=entries.find(x=>x.id===eid);
   if(!e||!isAdmin(currentUser))return;
   if((e.confirmations||[]).find(c=>c.userId===currentUser.id)){showToast('既に確認済みです');return;}
+  const newConf=[...(e.confirmations||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()}];
   try{
-    // STEP3: 同時確認で上書き消えを防ぐため、Firestoreの最新確認リストを取得してからマージ
-    let baseConf;
-    try{
-      const fresh=await fsGet(COLL_ENTRIES,String(eid));
-      if(fresh){
-        if((fresh.confirmations||[]).find(c=>c.userId===currentUser.id)){
-          e.confirmations=fresh.confirmations; saveLocal();
-          showToast('既に確認済みです'); return;
-        }
-        baseConf=fresh.confirmations||[];
-      } else { baseConf=e.confirmations||[]; }
-    }catch(_){ baseConf=e.confirmations||[]; }
-    const newConf=[...baseConf,{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()}];
-    e.confirmations=newConf; saveLocal();
     await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
+    if(e2) return; // unused var fix
     showToast('✅ 確認しました');
   }catch(err){showToast('⚠️ エラー: '+err.message);}
 }
@@ -3385,11 +3349,6 @@ async function addUser(){
   const u={id:'u'+Date.now(),name,role,pin,grade};
   try{
     await fsSet(COLL_USERS,u.id,u);
-    // Bug①修正: Firestoreへの書き込み成功後にローカル配列を即時更新
-    users.push(u);
-    saveLocal();
-    renderUsersTable();
-    renderLoginUsers();
     document.getElementById('new-user-name').value='';
     document.getElementById('new-user-pin').value='';
     showToast(name+' を追加しました');
@@ -3402,12 +3361,6 @@ async function deleteUser(uid){
   if(!confirm('「'+u.name+'」を削除しますか？（記録データは保持されます）'))return;
   try{
     await fsDelete(COLL_USERS,uid);
-    // Bug①修正: Firestoreからの削除成功後にローカル配列を即時更新
-    users=users.filter(x=>x.id!==uid);
-    saveLocal();
-    renderUsersTable();
-    renderLoginUsers();
-    showToast('✅ '+u.name+' を削除しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
@@ -3795,24 +3748,11 @@ async function pollData(){
         if(currentView==='users') renderUsersTable();
       }
     }
-    // STEP3: Firebaseが空でもローカルデータを消さない（接続エラー対策）
-    // Firestoreのユーザー数がローカルより少ない場合は部分応答の可能性があるためマージで対応
+    // Firebaseが空でもローカルデータを消さない（接続エラー対策）
     if(nu.length>0){
-      const nuIds=nu.map(u=>u.id).sort();
-      const localIds=users.map(u=>u.id).sort();
-      const idsAdded=nuIds.some(id=>!localIds.includes(id));
-      const idsRemoved=localIds.some(id=>!nuIds.includes(id));
-      const dataChanged=JSON.stringify(nu)!==JSON.stringify(users);
-      if(idsAdded||idsRemoved||dataChanged){
-        if(nu.length>=users.length){
-          // Firestoreの方が多い or 同数 → 全置換（削除・追加反映）
-          users=nu;
-        } else {
-          // Firestoreの方が少ない → ローカルにある未取得ユーザーを保持しつつ更新分を反映
-          const merged=[...nu];
-          users.forEach(lu=>{ if(!merged.find(u=>u.id===lu.id)) merged.push(lu); });
-          users=merged;
-        }
+      if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
+         JSON.stringify(nu)!==JSON.stringify(users)){
+        users=nu;
         saveLocal();
         renderLoginUsers();
         if(currentView==='users') renderUsersTable();
@@ -3843,7 +3783,7 @@ async function pollData(){
       }
     }
     // ホーム日誌の同期
-    if(nh.length>0 || homeDiaryEntries.length===0){
+    if(nh.length>0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
         homeDiaryEntries=nh;
@@ -4004,15 +3944,9 @@ async function postNotice(){
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
-    // ★修正③: Firestore書き込み成功後にローカル配列を即時更新（次のpollまで待たない）
-    notices.unshift(n);
-    knownNoticeIds.add(n.id);
-    saveLocal();
-    updateNoticeBadge();
     document.getElementById('notice-title').value='';
     document.getElementById('notice-body').value='';
     toggleNoticeForm();
-    renderNotices();
     showToast('📢 お知らせを投稿しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
@@ -4576,18 +4510,8 @@ function _savePDF(innerHTML,filename){
   const style=document.createElement('style');
   style.textContent=_getPrintCSS();
   const content=document.createElement('div');
+  content.style.cssText='width:262mm;background:white;';
   content.innerHTML=innerHTML;
-  /* STEP2修正: スマホviewport幅の誤レンダリングを防ぐため各ページ高さを明示指定
-     ページ数×190mmでコンテンツ全体高さを固定し、最終ページ後の白紙余白を排除する */
-  const pageEls=content.querySelectorAll('.print-page,.hdp-page');
-  pageEls.forEach(el=>{
-    el.style.height='190mm';
-    el.style.overflow='hidden';
-    el.style.breakAfter='page';
-    el.style.pageBreakAfter='always';
-  });
-  const pageCount=Math.max(pageEls.length,1);
-  content.style.cssText=`width:262mm;background:white;height:${pageCount*190}mm;overflow:hidden;`;
   wrap.appendChild(style);
   wrap.appendChild(content);
   document.body.appendChild(wrap);
@@ -4596,14 +4520,8 @@ function _savePDF(innerHTML,filename){
     margin:[10,25,10,10],
     filename:filename,
     image:{type:'jpeg',quality:0.98},
-    html2canvas:{
-      scale:2,
-      useCORS:true,
-      logging:false,
-      windowWidth:992  // スマホのviewport幅による誤レンダリングを防ぐ
-    },
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
-    pagebreak:{mode:['css','avoid-all']}  // CSS page-break指定を尊重し余分ページを防ぐ
+    html2canvas:{scale:2,useCORS:true,logging:false},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
   }).from(content).save()
     .then(()=>{document.body.removeChild(wrap);showToast('✅ PDF保存完了');})
     .catch(()=>{document.body.removeChild(wrap);showToast('⚠️ PDF生成に失敗しました');});
