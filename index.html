@@ -2051,7 +2051,7 @@ async function init(){
     const fe=await fsGetAll(COLL_ENTRIES);
     if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); }
     const fn=await fsGetAll(COLL_NOTICES);
-    if(fn.length){ notices=fn; notices.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)); saveLocal(); }
+    if(fn.length){ notices=fn; notices.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); saveLocal(); }
   }catch(e){ console.warn('Firebase sync error:',e); }
   // 並び順をFirestoreから取得（旧localStorage値があれば移行して削除）
   try{
@@ -4017,8 +4017,8 @@ function buildNoticeCard(n){
       <div style="flex:1;min-width:0;">
         <div class="notice-title">${esc(n.title)}</div>
         <div class="notice-author">
-          <span class="notice-author-avatar ${n.authorRole==='principal'||n.authorRole==='vice_principal'?'admin':''}">${n.authorName.charAt(0)}</span>
-          <span class="notice-author-name">${n.authorName}</span>
+          <span class="notice-author-avatar ${n.authorRole==='principal'||n.authorRole==='vice_principal'?'admin':''}">${(n.authorName||'?').charAt(0)}</span>
+          <span class="notice-author-name">${n.authorName||''}</span>
           <span class="role-badge role-${n.authorRole}">${ROLE_LABEL[n.authorRole]}</span>
           <span class="notice-author-time">${fmtDt(n.createdAt)}</span>
         </div>
