@@ -2149,6 +2149,7 @@ function loadLocal(){
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
+    // ★修正①: ホーム日誌の読み込みが抜けていた
     if(h){ homeDiaryEntries=JSON.parse(h); homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date)); }
     // 見つかったデータを新キーで保存（統一）
     if(u||e||n||h) saveLocal();
@@ -4003,10 +4004,15 @@ async function postNotice(){
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
-    notices.unshift(n); knownNoticeIds.add(n.id); saveLocal(); updateNoticeBadge(); renderNotices();
+    // ★修正③: Firestore書き込み成功後にローカル配列を即時更新（次のpollまで待たない）
+    notices.unshift(n);
+    knownNoticeIds.add(n.id);
+    saveLocal();
+    updateNoticeBadge();
     document.getElementById('notice-title').value='';
     document.getElementById('notice-body').value='';
     toggleNoticeForm();
+    renderNotices();
     showToast('📢 お知らせを投稿しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
