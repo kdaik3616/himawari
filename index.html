@@ -2051,7 +2051,7 @@ async function init(){
     const fe=await fsGetAll(COLL_ENTRIES);
     if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); }
     const fn=await fsGetAll(COLL_NOTICES);
-    if(fn.length){ notices=fn; notices.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); saveLocal(); }
+    if(fn.length){ notices=fn.filter(n=>n.title&&n.authorName&&n.createdAt); notices.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); saveLocal(); }
   }catch(e){ console.warn('Firebase sync error:',e); }
   // 並び順をFirestoreから取得（旧localStorage値があれば移行して削除）
   try{
@@ -3731,15 +3731,16 @@ async function pollData(){
       }
     }
     if(nn.length>0||notices.length===0){
-      nn.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-      if(JSON.stringify(nn)!==JSON.stringify(notices)){
+      const nn_clean=nn.filter(n=>n.title&&n.authorName&&n.createdAt);
+      nn_clean.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      if(JSON.stringify(nn_clean)!==JSON.stringify(notices)){
         const prevIds=knownNoticeIds;
-        notices=nn;
-        knownNoticeIds=new Set(nn.map(n=>n.id));
+        notices=nn_clean;
+        knownNoticeIds=new Set(nn_clean.map(n=>n.id));
         updateNoticeBadge();
         if(currentView==='notices') renderNotices();
         if(prevIds!==null&&currentUser){
-          const fresh=nn.filter(n=>!prevIds.has(n.id)&&canSeeNotice(currentUser,n)&&!(n.readBy||[]).find(r=>r.userId===currentUser.id));
+          const fresh=nn_clean.filter(n=>!prevIds.has(n.id)&&canSeeNotice(currentUser,n)&&!(n.readBy||[]).find(r=>r.userId===currentUser.id));
           if(fresh.length>0) showNoticeAlert(fresh[0]);
         }
       }
@@ -4038,7 +4039,7 @@ function buildNoticeCard(n){
 }
 
 function renderNotices(){
-  const visible=notices.filter(n=>canSeeNotice(currentUser,n));
+  const visible=notices.filter(n=>n.title&&n.authorName&&n.createdAt).filter(n=>canSeeNotice(currentUser,n));
   const c=document.getElementById('notices-container');
   // show/hide create form for admin
   const cw=document.getElementById('notice-create-wrap');
