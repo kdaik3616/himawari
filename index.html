@@ -579,7 +579,7 @@ select{
 #print-area{display:none;}
 @media print{
   /* 横向きA4固定 – 向きに関係なく常に同じレイアウトで印刷 */
-  @page{size:A4 landscape;margin:10mm 10mm 10mm 25mm;/* 左25mm=バインダー穴あけ用 */}
+  @page{size:A4 landscape;margin:10mm;}
   html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   /* 専用印刷モード(doPrint): print-areaのみ表示（#print-areaの非表示ルールより後で上書きするため順序に注意） */
   body.print-active>*:not(#print-area){display:none!important;}
@@ -1625,42 +1625,11 @@ select{
         <div style="margin-top:12px;">
           <label class="form-label" style="display:block;margin-bottom:6px;">全体人数</label>
           <div class="hd-headcount-row" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
-           <div>
-             <label class="field-label">合計（自動）</label>
-             <input type="text" id="hd-total" readonly style="width:100px;background:var(--sage-light);color:var(--sage-dark);font-weight:bold;">
-           </div>
-           <div>
-             <label class="field-label">15:30</label>
-             <div style="display:flex;align-items:center;gap:3px;">
-               <input type="number" id="hd-1530-a" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-               <span style="font-size:12px;color:#666;">/</span>
-               <input type="number" id="hd-1530-b" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-             </div>
-           </div>
-           <div>
-             <label class="field-label">16:30</label>
-             <div style="display:flex;align-items:center;gap:3px;">
-               <input type="number" id="hd-1630-a" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-               <span style="font-size:12px;color:#666;">/</span>
-               <input type="number" id="hd-1630-b" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-             </div>
-           </div>
-           <div>
-             <label class="field-label">17:30</label>
-             <div style="display:flex;align-items:center;gap:3px;">
-               <input type="number" id="hd-1730-a" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-               <span style="font-size:12px;color:#666;">/</span>
-               <input type="number" id="hd-1730-b" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-             </div>
-           </div>
-           <div>
-             <label class="field-label">18:30</label>
-             <div style="display:flex;align-items:center;gap:3px;">
-               <input type="number" id="hd-1830-a" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-               <span style="font-size:12px;color:#666;">/</span>
-               <input type="number" id="hd-1830-b" style="width:50px;" min="0" oninput="hdUpdateTotal()">
-             </div>
-           </div>
+           <div><label class="field-label">合計（自動）</label><input type="text" id="hd-total" readonly style="width:70px;background:var(--sage-light);color:var(--sage-dark);font-weight:bold;"></div>
+           <div><label class="field-label">15:30</label><input type="number" id="hd-1530" style="width:55px;" oninput="hdUpdateTotal()"></div>
+           <div><label class="field-label">16:30</label><input type="number" id="hd-1630" style="width:55px;" oninput="hdUpdateTotal()"></div>
+           <div><label class="field-label">17:30</label><input type="number" id="hd-1730" style="width:55px;" oninput="hdUpdateTotal()"></div>
+           <div><label class="field-label">18:30</label><input type="number" id="hd-1830" style="width:55px;" oninput="hdUpdateTotal()"></div>
           </div>
         </div>
 
@@ -2142,9 +2111,8 @@ function loadLocal(){
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
-    if(h){ homeDiaryEntries=JSON.parse(h); homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date)); }
     // 見つかったデータを新キーで保存（統一）
-    if(u||e||n||h) saveLocal();
+    if(u||e||n) saveLocal();
   }catch(_){}
 }
 function saveLocal(){
@@ -3160,16 +3128,9 @@ async function saveUserName(uid){
   if(!u) return;
   if(!newName){inp.value=u.name; return;}
   if(newName===u.name) return;
-  const old=u.name;
-  /* pollData競合対策: Firestoreへ先に保存してから、ローカルを更新する。
-     逆順にすると pollData が旧データをフェッチして上書きしてしまう。 */
-  try{
-    await fsUpdateField(COLL_USERS,uid,'name',newName);
-    u.name=newName; saveLocal(); renderUsersTable(); renderLoginUsers();
-    showToast('✅ 名前を変更しました');
-  }catch(e){
-    inp.value=old; showToast('⚠️ '+e.message);
-  }
+  const old=u.name; u.name=newName; saveLocal(); renderLoginUsers();
+  try{await fsUpdateField(COLL_USERS,uid,'name',newName); showToast('✅ 名前を変更しました');}
+  catch(e){u.name=old; saveLocal(); if(inp)inp.value=old; showToast('⚠️ '+e.message);}
 }
 
 async function saveUserGrade(uid){
@@ -3801,7 +3762,6 @@ function startListeners(){
   renderYearTabs();
   if(currentView==='entries') renderEntries();
   if(currentView==='notices') renderNotices();
-  if(currentView==='homediary') renderHomeDiaryList();
   populateYearSelect();
   if(isAdmin(currentUser)) populateStaffSearchSelect();
   // Firebaseと非同期同期（失敗してもOK）
@@ -3953,38 +3913,16 @@ async function postNotice(){
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
-/* 同時アクセス競合対策: 処理中のnidを記録して二重実行を防ぐ */
-const _markReadPending=new Set();
 async function markNoticeRead(nid){
-  /* ローカルでも既読なら何もしない */
   const n=notices.find(x=>x.id===nid);
-  if(!n) return;
-  if((n.readBy||[]).find(r=>r.userId===currentUser.id)) return;
-  /* 処理中なら重複実行しない */
-  if(_markReadPending.has(nid)) return;
-  _markReadPending.add(nid);
+  if(!n||n.readBy.find(r=>r.userId===currentUser.id)) return;
+  const newReadBy=[...(n.readBy||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()}];
+  n.readBy=newReadBy;
+  updateNoticeBadge();
+  if(currentView==='notices') renderNotices();
   try{
-    /* Firestoreから最新readByを取得してから追記（同時確認でも消えないようにする） */
-    let baseReadBy;
-    try{
-      const fresh=await fsGet(COLL_NOTICES,String(nid));
-      if(fresh){
-        /* Firestore側で既に確認済みなら、ローカルに反映して終了 */
-        if((fresh.readBy||[]).find(r=>r.userId===currentUser.id)){
-          n.readBy=fresh.readBy; saveLocal(); updateNoticeBadge();
-          if(currentView==='notices') renderNotices();
-          return;
-        }
-        baseReadBy=fresh.readBy||[];
-      } else { baseReadBy=n.readBy||[]; }
-    }catch(_){ baseReadBy=n.readBy||[]; }
-    const newReadBy=[...baseReadBy,{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()}];
-    /* ローカルを即反映してUIを素早く更新 */
-    n.readBy=newReadBy; saveLocal(); updateNoticeBadge();
-    if(currentView==='notices') renderNotices();
     await fsUpdateField(COLL_NOTICES,String(nid),'readBy',newReadBy);
-  }catch(e){ showToast('⚠️ エラー: '+e.message); }
-  finally{ _markReadPending.delete(nid); }
+  }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
 async function deleteNotice(nid){
@@ -4263,13 +4201,6 @@ function hdInitActivityTable() {
   if (!tbody) return;
   tbody.innerHTML = HD_TIMES.map(t => {
     const key = t.replace(':','-');
-    /* 16:00以降は年少・年中・年長で同じ取組なので結合セル1つ */
-    if(t >= '16:00'){
-      return `<tr>
-        <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
-        <td colspan="3" style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-combined" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
-      </tr>`;
-    }
     return `<tr>
       <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
       <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-junior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
@@ -4277,7 +4208,7 @@ function hdInitActivityTable() {
       <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-senior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
     </tr>`;
   }).join('');
-  hdRenderDutySelect();
+  hdRenderDutySelect(); // ← この1行を末尾に追加
 }
 
 function hdShowTab(tab) {
@@ -4296,17 +4227,11 @@ function saveHomeDiaryEntry() {
   const activities = {};
   HD_TIMES.forEach(t => {
     const key = t.replace(':','-');
-    if(t >= '16:00'){
-      /* 16:00以降: 結合セル1つ。combined フィールドに保存 */
-      const combined = document.getElementById(`hd-${key}-combined`)?.value||'';
-      activities[t] = { junior: combined, middle: '', senior: '', combined };
-    } else {
-      activities[t] = {
-        junior: document.getElementById(`hd-${key}-junior`)?.value||'',
-        middle: document.getElementById(`hd-${key}-middle`)?.value||'',
-        senior: document.getElementById(`hd-${key}-senior`)?.value||''
-      };
-    }
+    activities[t] = {
+      junior: document.getElementById(`hd-${key}-junior`)?.value||'',
+      middle: document.getElementById(`hd-${key}-middle`)?.value||'',
+      senior: document.getElementById(`hd-${key}-senior`)?.value||''
+    };
   });
 
   const existing = homeDiaryEntries.find(e=>e.date===date);
@@ -4328,14 +4253,10 @@ function saveHomeDiaryEntry() {
     lostItems:     document.getElementById('hd-lost').value,
     childrenNotes: document.getElementById('hd-children-notes').value,
     headcountTotal:document.getElementById('hd-total').value,
-    headcount1530a: document.getElementById('hd-1530-a').value,
-    headcount1530b: document.getElementById('hd-1530-b').value,
-    headcount1630a: document.getElementById('hd-1630-a').value,
-    headcount1630b: document.getElementById('hd-1630-b').value,
-    headcount1730a: document.getElementById('hd-1730-a').value,
-    headcount1730b: document.getElementById('hd-1730-b').value,
-    headcount1830a: document.getElementById('hd-1830-a').value,
-    headcount1830b: document.getElementById('hd-1830-b').value,
+    headcount1530: document.getElementById('hd-1530').value,
+    headcount1630: document.getElementById('hd-1630').value,
+    headcount1730: document.getElementById('hd-1730').value,
+    headcount1830: document.getElementById('hd-1830').value,
     savedAt: new Date().toISOString()
   };
 
@@ -4379,7 +4300,7 @@ function renderHomeDiaryList() {
   ${e.snackMenu?`<div>🍪 おやつ：${esc(e.snackMenu)}</div>`:''}
   ${e.sharedInfo?`<div style="margin-top:8px;padding:8px;background:var(--sun-light);border-radius:6px;"><b>📋 共有事項</b><br>${esc(e.sharedInfo).replace(/\n/g,'<br>')}</div>`:''}
   ${e.childrenNotes?`<div style="margin-top:8px;padding:8px;background:var(--green-light);border-radius:6px;"><b>👧 子どもたちの様子</b><br>${esc(e.childrenNotes).replace(/\n/g,'<br>')}</div>`:''}
-  <div style="margin-top:8px;color:#888;font-size:11px;">全体人数: ${e.headcountTotal||'-'}　15:30 ${hdFmtCount(e,'1530')||'-'}　16:30 ${hdFmtCount(e,'1630')||'-'}　17:30 ${hdFmtCount(e,'1730')||'-'}　18:30 ${hdFmtCount(e,'1830')||'-'}</div>
+  <div style="margin-top:8px;color:#888;font-size:11px;">全体人数: ${e.headcountTotal||'-'}</div>
 </div>
     </div>`).join('');
 }
@@ -4395,18 +4316,6 @@ function deleteHomeDiary(id) {
   }
 }
 
-/* 旧データ(headcount1530)・新データ(headcount1530a/b)の両形式に対応して表示文字列を返す */
-function hdFmtCount(e, slot){
-  const a = e[`headcount${slot}a`];
-  const b = e[`headcount${slot}b`];
-  if(a!==undefined || b!==undefined){
-    return `${a||0}人/${b||0}人`;
-  }
-  /* 旧データ互換 */
-  const old = e[`headcount${slot}`];
-  return old ? esc(String(old)) : '';
-}
-
 function _buildHdpHTML(id){
   const e=homeDiaryEntries.find(x=>x.id===id);
   if(!e) return null;
@@ -4414,14 +4323,6 @@ function _buildHdpHTML(id){
   const reiwa=d.getFullYear()-2018;
   const actRows=HD_TIMES.map(t=>{
     const a=e.activities[t]||{};
-    if(t>='16:00'){
-      /* 16:00以降: 年少・年中・年長で同じ取組 → 結合セル */
-      const val=(a.combined||a.junior||'').replace(/\n/g,'<br>');
-      return `<tr>
-        <td class="hdp-time">${t}</td>
-        <td class="hdp-cell" colspan="3">${val}</td>
-      </tr>`;
-    }
     return `<tr>
       <td class="hdp-time">${t}</td>
       <td class="hdp-cell">${(a.junior||'').replace(/\n/g,'<br>')}</td>
@@ -4468,10 +4369,10 @@ function _buildHdpHTML(id){
         <tr><th>全体人数</th><th>15:30</th><th>16:30</th><th>17:30</th><th>18:30</th></tr>
         <tr>
           <td>${esc(e.headcountTotal||'')}</td>
-          <td>${hdFmtCount(e,'1530')}</td>
-          <td>${hdFmtCount(e,'1630')}</td>
-          <td>${hdFmtCount(e,'1730')}</td>
-          <td>${hdFmtCount(e,'1830')}</td>
+          <td>${esc(e.headcount1530||'')}</td>
+          <td>${esc(e.headcount1630||'')}</td>
+          <td>${esc(e.headcount1730||'')}</td>
+          <td>${esc(e.headcount1830||'')}</td>
         </tr>
       </table>
     </div>`};
@@ -4506,20 +4407,18 @@ function _getPrintCSS(){
 function _savePDF(innerHTML,filename){
   if(typeof html2pdf==='undefined'){showToast('⚠️ PDFライブラリ読込中。再度お試しください');return;}
   showToast('📄 PDF生成中…');
-  /* A4横 297mm - 左25mm - 右10mm = 262mm がコンテンツ幅 */
   const wrap=document.createElement('div');
-  wrap.style.cssText='position:fixed;left:-9999px;top:0;width:262mm;background:white;z-index:-1;';
+  wrap.style.cssText='position:fixed;left:-9999px;top:0;width:277mm;background:white;z-index:-1;';
   const style=document.createElement('style');
   style.textContent=_getPrintCSS();
   const content=document.createElement('div');
-  content.style.cssText='width:262mm;background:white;';
+  content.style.cssText='width:277mm;background:white;';
   content.innerHTML=innerHTML;
   wrap.appendChild(style);
   wrap.appendChild(content);
   document.body.appendChild(wrap);
   html2pdf().set({
-    /* [top, left, bottom, right] 形式 */
-    margin:[10,25,10,10],
+    margin:8,
     filename:filename,
     image:{type:'jpeg',quality:0.98},
     html2canvas:{scale:2,useCORS:true,logging:false},
@@ -4545,14 +4444,12 @@ function savePDFHomeDiary(id){
   const r=_buildHdpHTML(id);if(!r)return;
   _savePDF(r.html,`ホーム日誌_${r.date}.pdf`);
 }
-function hdUpdateTotal() {
-  const g=id=>parseInt(document.getElementById(id)?.value)||0;
-  const sumA = g('hd-1530-a')+g('hd-1630-a')+g('hd-1730-a')+g('hd-1830-a');
-  const sumB = g('hd-1530-b')+g('hd-1630-b')+g('hd-1730-b')+g('hd-1830-b');
-  const anyA = g('hd-1530-a')||g('hd-1630-a')||g('hd-1730-a')||g('hd-1830-a');
-  const anyB = g('hd-1530-b')||g('hd-1630-b')||g('hd-1730-b')||g('hd-1830-b');
-  if(!anyA && !anyB){ document.getElementById('hd-total').value=''; return; }
-  document.getElementById('hd-total').value = `${sumA}人/${sumB}人`;
+  function hdUpdateTotal() {
+  const t1 = parseInt(document.getElementById('hd-1530').value)||0;
+  const t2 = parseInt(document.getElementById('hd-1630').value)||0;
+  const t3 = parseInt(document.getElementById('hd-1730').value)||0;
+  const t4 = parseInt(document.getElementById('hd-1830').value)||0;
+  document.getElementById('hd-total').value = (t1+t2+t3+t4) || '';
 }
 
 function hdRenderDutySelect() {
