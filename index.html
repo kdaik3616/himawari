@@ -2766,6 +2766,34 @@ function clearInputForm(){
     .forEach(id=>document.getElementById(id).value='');
 }
 
+function editEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+  if (e.staff !== currentUser.name) {
+    showToast('⚠️ 自分の記録のみ編集できます');
+    return;
+  }
+
+  // 入力フォームに値を読み込む
+  document.getElementById('input-date').value          = e.date         || '';
+  document.getElementById('input-weather').value       = e.weather      || '晴';
+  document.getElementById('input-weekly-goal').value   = e.weeklyGoal   || '';
+  document.getElementById('input-daily-goal').value    = e.dailyGoal    || '';
+  document.getElementById('input-activity').value      = e.activity     || '';
+  document.getElementById('input-support').value       = e.support      || '';
+  document.getElementById('input-main-activity').value = e.mainActivity || '';
+  document.getElementById('input-absence').value       = e.absence      || '';
+  document.getElementById('input-guardian').value      = e.guardian     || '';
+  document.getElementById('input-reflection').value    = e.reflection   || '';
+  document.getElementById('input-episode').value       = e.episode      || '';
+  updateWeekday();
+
+  // 入力画面に移動してスクロールを先頭に戻す
+  showView('input');
+  window.scrollTo(0, 0);
+  showToast('📝 記録を読み込みました。修正後に保存してください');
+}
+
 // ==================================================
 // ENTRIES LIST
 // ==================================================
@@ -2931,6 +2959,9 @@ const canPrint = isAdmin(currentUser) || e.staff === currentUser.name;
 const staffUser = users.find(us=>us.name===e.staff);
 const staffHB = staffUser?.homeroom?'<span class="homeroom-badge">担任</span>':'';
 const adminActions = `
+    ${e.staff === currentUser.name
+        ? `<button class="btn-secondary btn-sm" onclick="editEntry(${e.id})">✏️ 編集</button>`
+        : ''}
     ${isAdmin(currentUser) || e.staff === currentUser.name
         ? `<button class="btn-secondary btn-sm print-btn-pc" onclick="printSingle(${e.id})">🖨</button><button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFSingle(${e.id})">📄</button>`
         : ''}
@@ -3641,6 +3672,7 @@ function renderEntriesTable(filtered){
         ${confirmed
           ? `<span style="color:var(--green-dark);font-size:12px;font-weight:600;">✓ 確認済み</span>`
           : (isAdm ? `<button class="btn-confirm btn-sm" onclick="confirmEntry(${e.id})">✔ 確認</button>` : '<span style="font-size:11px;color:var(--orange);">未確認</span>')}
+        ${e.staff === currentUser.name ? `<br><button class="btn-secondary btn-sm" style="margin-top:4px;" onclick="editEntry(${e.id})">✏️ 編集</button>` : ''}
         ${isAdm?`<br><button class="btn-danger btn-sm" style="margin-top:4px;" onclick="deleteEntry(${e.id})">削除</button>`:''}
       </td>
     </tr>`;
