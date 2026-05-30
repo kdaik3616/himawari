@@ -2347,34 +2347,49 @@ function checkPin(){
 // ==================================================
 // 自動ログアウト（30分無操作）
 // ==================================================
-const AUTO_LOGOUT_MS = 30 * 60 * 1000; // 30分
+const AUTO_LOGOUT_MS = 30 * 60 * 1000;
 let autoLogoutTimer = null;
+let lastActiveAt = Date.now();
 
 function resetAutoLogoutTimer() {
   if (!document.body.classList.contains('logged-in')) return;
+  lastActiveAt = Date.now();
   clearTimeout(autoLogoutTimer);
-  autoLogoutTimer = setTimeout(() => {
-    logout();
-    // ログアウト後にメッセージを表示
-    setTimeout(() => {
-      const err = document.getElementById('login-error') || document.querySelector('.login-error');
-      if (err) {
-        err.textContent = '30分間操作がなかったため、自動でログアウトしました。';
-        err.style.display = 'block';
-      }
-    }, 100);
-  }, AUTO_LOGOUT_MS);
+  autoLogoutTimer = setTimeout(triggerAutoLogout, AUTO_LOGOUT_MS);
+}
+
+function triggerAutoLogout() {
+  if (!document.body.classList.contains('logged-in')) return;
+  logout();
+  setTimeout(() => {
+    const err = document.querySelector('.login-error');
+    if (err) {
+      err.textContent = '30分間操作がなかったため、自動でログアウトしました。';
+      err.style.display = 'block';
+    }
+  }, 100);
 }
 
 function startAutoLogoutWatcher() {
-  ['mousemove','mousedown','click','touchstart','keypress','scroll'].forEach(ev => {
+  ['mousemove','mousedown','click','touchstart','touchend','keypress','scroll'].forEach(ev => {
     document.addEventListener(ev, resetAutoLogoutTimer, { passive: true });
+  });
+  // スマホ対応：画面復帰時に経過時間をチェック
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (Date.now() - lastActiveAt >= AUTO_LOGOUT_MS) {
+        triggerAutoLogout();
+      } else {
+        resetAutoLogoutTimer();
+      }
+    }
   });
   resetAutoLogoutTimer();
 }
 
 function stopAutoLogoutWatcher() {
   clearTimeout(autoLogoutTimer);
+  autoLogoutTimer = null;
 }
 
 function logout(){
