@@ -2221,9 +2221,17 @@ function getOrderedUsers(){
 }
 function hoomroomBadge(u){ return u&&u.homeroom?'<span class="homeroom-badge">担任</span>':''; }
 function getUserGrade(u){
-  if(u.grade!==undefined&&u.grade!==null) return u.grade;
-  if(['senior','middle','junior','sesame'].includes(u.role)) return u.role;
-  return null;
+  if(!u) return 'other';
+  // 明示的にグループが設定されていればそれを返す
+  if(u.grade&&u.grade!=='null') return u.grade;
+  // 役職からデフォルトグループを判定
+  const mgmtRoles=['principal','advisor','vice_principal','head_teacher','asst_head','free'];
+  if(mgmtRoles.includes(u.role)) return 'mgmt';
+  if(u.role==='part_time') return 'other';
+  // 学年担当はそのままroleをgradeとして使う
+  const gradeRoles=['senior','middle','junior','sesame'];
+  if(gradeRoles.includes(u.role)) return u.role;
+  return 'other';
 }
 
 function renderLoginUsers(filter=''){
@@ -2239,19 +2247,18 @@ function renderLoginUsers(filter=''){
   // 検索中はフラットリスト
   if(q){ list.innerHTML=filtered.map(renderLoginItem).join(''); return; }
   // 学年別セクション表示
-  const GRADE_ORDER=['senior','middle','junior','sesame'];
-  const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理'};
-  const sections={null:[]};
+  const GRADE_ORDER=['senior','middle','junior','sesame','mgmt','other'];
+  const GRADE_LABELS={
+    'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',
+    'mgmt':'🏛 管理','other':'👥 その他'
+  };
+  const sections={};
   GRADE_ORDER.forEach(g=>{sections[g]=[];});
   filtered.forEach(u=>{
     const g=getUserGrade(u);
-    if(g in sections) sections[g].push(u); else sections[null].push(u);
+    if(g in sections) sections[g].push(u); else sections['other'].push(u);
   });
   let html='';
-  if(sections[null].length){
-    html+=`<div class="user-list-group-label">${GRADE_LABELS[null]}</div>`;
-    html+=sections[null].map(renderLoginItem).join('');
-  }
   GRADE_ORDER.forEach(grade=>{
     if(!sections[grade].length) return;
     html+=`<div class="user-list-group-label">${GRADE_LABELS[grade]}</div>`;
@@ -3140,16 +3147,21 @@ function updateSelUI(){
 function renderUsersTable(){
   const wrap=document.getElementById('users-table-wrap');
   if(!wrap) return;
-  const GRADE_ORDER=['senior','middle','junior','sesame',null];
-  const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理・その他'};
-  const gradeOpts=(cur)=>[['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],['null','管理・その他']]
-    .map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
+  const GRADE_ORDER=['senior','middle','junior','sesame','mgmt','other'];
+  const GRADE_LABELS={
+    'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',
+    'mgmt':'🏛 管理','other':'👥 その他'
+  };
+  const gradeOpts=(cur)=>[
+    ['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],
+    ['mgmt','管理'],['other','その他']
+  ].map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
   const roleOpts=(cur)=>['principal','advisor','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free','part_time']
     .map(r=>`<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
   const ordered=getOrderedUsers()||[...users];
   const sections={};
   GRADE_ORDER.forEach(g=>{sections[String(g)]=[];});
-  ordered.forEach(u=>{const k=String(getUserGrade(u));if(k in sections)sections[k].push(u);else sections['null'].push(u);});
+  ordered.forEach(u=>{const k=String(getUserGrade(u));if(k in sections)sections[k].push(u);else sections['other'].push(u);});
   let html='';
   GRADE_ORDER.forEach(grade=>{
     const k=String(grade);
@@ -3970,7 +3982,7 @@ function canSeeNotice(u,n){
   }
   if(ranges.includes('all')) return true;
   const grade=getUserGrade(u);
-  if(!grade) return true;  // 学年未設定・フリーは全て閲覧可能
+  if(!grade||grade==='mgmt'||grade==='other') return true;  // 管理・その他は全て閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
   return ranges.map(norm).some(r=>r===grade);
 }
