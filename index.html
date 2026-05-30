@@ -1792,6 +1792,15 @@ select{
                   <label class="field-label">内容 <span class="req">*</span></label>
                   <textarea id="notice-body" class="tall" placeholder="お知らせの内容を入力してください..."></textarea>
                 </div>
+                <div class="field-group" style="margin-bottom:12px;">
+                  <label class="field-label">📎 ファイル添付 <span style="font-size:11px;color:var(--warm-gray);font-weight:normal;">（PDF・Word・Excel等、1ファイル750KB以内）</span></label>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                    <button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('notice-file-input').click()">📂 ファイルを選択</button>
+                    <input type="file" id="notice-file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" style="display:none;" multiple onchange="handleNoticeFileSelect(event)">
+                    <span id="notice-file-count" style="font-size:12px;color:var(--warm-gray);">未選択</span>
+                  </div>
+                  <div id="notice-file-preview" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+                </div>
                 <div class="field-group" style="margin-bottom:14px;">
                   <label class="field-label">公開範囲</label>
                   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;" id="notice-range-wrap">
@@ -3935,11 +3944,81 @@ function toggleRange(el,val){
   }
 }
 
+// 添付ファイルの一時保持
+let _noticeFiles = []; // [{name, type, size, base64}]
+
+// ファイルアイコン取得
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') return '📄';
+  if (['doc','docx'].includes(ext)) return '📝';
+  if (['xls','xlsx'].includes(ext)) return '📊';
+  if (['ppt','pptx'].includes(ext)) return '📋';
+  return '📎';
+}
+
+function handleNoticeFileSelect(event) {
+  const files = [...event.target.files];
+  const MAX_BYTES = 750 * 1024; // 750KB
+  const errors = [];
+
+  files.forEach(file => {
+    if (file.size > MAX_BYTES) {
+      errors.push(`「${file.name}」は750KBを超えています（${Math.round(file.size/1024)}KB）`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result.split(',')[1];
+      _noticeFiles.push({ name: file.name, type: file.type, size: file.size, base64 });
+      renderNoticeFilePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  event.target.value = '';
+
+  if (errors.length) {
+    showToast('⚠️ ' + errors.join(' / '));
+  }
+}
+
+function renderNoticeFilePreview() {
+  const preview = document.getElementById('notice-file-preview');
+  const count = document.getElementById('notice-file-count');
+  if (!preview) return;
+  if (!_noticeFiles.length) {
+    preview.innerHTML = '';
+    if (count) count.textContent = '未選択';
+    return;
+  }
+  if (count) count.textContent = `${_noticeFiles.length}件選択中`;
+  preview.innerHTML = _noticeFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--sage-light);border-radius:16px;font-size:12px;">
+      <span>${getFileIcon(f.name)}</span>
+      <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span style="color:var(--warm-gray);">${Math.round(f.size/1024)}KB</span>
+      <button type="button" onclick="removeNoticeFile(${i})" style="background:none;border:none;cursor:pointer;color:#c00;font-size:14px;padding:0;line-height:1;">✕</button>
+    </div>`).join('');
+}
+
+function removeNoticeFile(index) {
+  _noticeFiles.splice(index, 1);
+  renderNoticeFilePreview();
+}
+
 async function postNotice(){
   const title=document.getElementById('notice-title').value.trim();
   const body=document.getElementById('notice-body').value.trim();
   if(!title||!body){showToast('⚠️ タイトルと内容を入力してください');return;}
   const ranges=noticeSelectedRanges.size?[...noticeSelectedRanges]:['all'];
+
+  const totalSize = _noticeFiles.reduce((s,f)=>s+f.size,0);
+  if(totalSize > 750*1024){
+    showToast('⚠️ 添付ファイルの合計サイズが750KBを超えています');
+    return;
+  }
+
   const n={
     id:Date.now(),
     title,body,ranges,
@@ -3947,13 +4026,16 @@ async function postNotice(){
     authorName:currentUser.name,
     authorRole:currentUser.role,
     createdAt:new Date().toISOString(),
-    readBy:[]
+    readBy:[],
+    attachments: _noticeFiles.map(f=>({name:f.name, type:f.type, size:f.size, base64:f.base64}))
   };
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
     document.getElementById('notice-title').value='';
     document.getElementById('notice-body').value='';
+    _noticeFiles=[];
+    renderNoticeFilePreview();
     toggleNoticeForm();
     showToast('📢 お知らせを投稿しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
@@ -4033,6 +4115,29 @@ function rangesBadges(ranges){
   return (ranges||['all']).map(r=>`<span class="range-badge ${RANGE_BADGE_CSS[r]||'rbadge-all'}">${RANGE_LABEL[r]||r}</span>`).join('');
 }
 
+function downloadNoticeFile(noticeId, fileIndex) {
+  const notice = notices.find(n => n.id === noticeId);
+  if (!notice || !notice.attachments) return;
+  const f = notice.attachments[fileIndex];
+  if (!f) return;
+  try {
+    const byteStr = atob(f.base64);
+    const bytes = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([bytes], { type: f.type || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    showToast('⚠️ ダウンロードに失敗しました');
+  }
+}
+
 function buildNoticeCard(n){
   const u=currentUser;
   const isRead=!!(n.readBy||[]).find(r=>r.userId===u.id);
@@ -4049,6 +4154,18 @@ function buildNoticeCard(n){
     </div>`).join('');
   const unreadList=eligible.filter(x=>!readIds.has(x.id)).map(x=>`
     <div class="notice-unread-item">⏳ ${x.name}</div>`).join('');
+
+  const attachHTML = (n.attachments && n.attachments.length) ? `
+    <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;">
+      ${n.attachments.map((f,i)=>`
+        <button type="button"
+          onclick="downloadNoticeFile(${n.id},${i})"
+          style="display:flex;align-items:center;gap:5px;padding:5px 12px;background:var(--sage-light);border:1px solid var(--sage);border-radius:16px;cursor:pointer;font-size:12px;color:var(--sage-dark);">
+          ${getFileIcon(f.name)} <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
+          <span style="color:var(--warm-gray);">${Math.round(f.size/1024)}KB</span>
+          ⬇
+        </button>`).join('')}
+    </div>` : '';
 
   const readSection=`
     <div class="notice-read-section">
@@ -4074,6 +4191,7 @@ function buildNoticeCard(n){
       ${isRead?`<span class="notice-badge-read">✓ 確認済み</span>`:`<span class="notice-badge-unread">● 未確認</span>`}
     </div>
     <div class="notice-body-text">${esc(n.body)}</div>
+    ${attachHTML}
     <div class="notice-footer">
       <div class="notice-range-badges">${rangesHTML}</div>
       <div style="display:flex;gap:6px;">
