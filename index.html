@@ -2149,8 +2149,9 @@ function loadLocal(){
     if(u) users=JSON.parse(u);
     if(e){ entries=JSON.parse(e); entries.sort((a,b)=>b.date.localeCompare(a.date)); }
     if(n) notices=JSON.parse(n);
+    if(h){ homeDiaryEntries=JSON.parse(h); homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date)); }
     // 見つかったデータを新キーで保存（統一）
-    if(u||e||n) saveLocal();
+    if(u||e||n||h) saveLocal();
   }catch(_){}
 }
 function saveLocal(){
@@ -3841,7 +3842,7 @@ async function pollData(){
       }
     }
     // ホーム日誌の同期
-    if(nh.length>0){
+    if(nh.length>0 || homeDiaryEntries.length===0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
         homeDiaryEntries=nh;
@@ -4002,6 +4003,7 @@ async function postNotice(){
   n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
   try{
     await fsSet(COLL_NOTICES,String(n.id),n);
+    notices.unshift(n); knownNoticeIds.add(n.id); saveLocal(); updateNoticeBadge(); renderNotices();
     document.getElementById('notice-title').value='';
     document.getElementById('notice-body').value='';
     toggleNoticeForm();
