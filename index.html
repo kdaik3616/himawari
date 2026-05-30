@@ -1757,7 +1757,8 @@ select{
                       <option value="middle">年中</option>
                       <option value="junior">年少</option>
                       <option value="sesame">セサミ</option>
-                      <option value="null">管理・その他</option>
+                      <option value="mgmt">🏛 管理</option>
+                      <option value="other">👥 その他</option>
                     </select>
                   </div>
                   <div class="field-group"><label class="field-label">役職</label>
@@ -2247,10 +2248,14 @@ function renderLoginUsers(filter=''){
   // 検索中はフラットリスト
   if(q){ list.innerHTML=filtered.map(renderLoginItem).join(''); return; }
   // 学年別セクション表示
-  const GRADE_ORDER=['senior','middle','junior','sesame','mgmt','other'];
+  const GRADE_ORDER=['mgmt','senior','middle','junior','sesame','other'];
   const GRADE_LABELS={
-    'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',
-    'mgmt':'🏛 管理','other':'👥 その他'
+    'mgmt':'🏛 管理',
+    'senior':'🌱 年長',
+    'middle':'🌸 年中',
+    'junior':'🌼 年少',
+    'sesame':'⭐ セサミ',
+    'other':'👥 その他'
   };
   const sections={};
   GRADE_ORDER.forEach(g=>{sections[g]=[];});
@@ -3153,8 +3158,8 @@ function renderUsersTable(){
     'mgmt':'🏛 管理','other':'👥 その他'
   };
   const gradeOpts=(cur)=>[
-    ['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],
-    ['mgmt','管理'],['other','その他']
+    ['senior','🌱 年長'],['middle','🌸 年中'],['junior','🌼 年少'],['sesame','⭐ セサミ'],
+    ['mgmt','🏛 管理'],['other','👥 その他']
   ].map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
   const roleOpts=(cur)=>['principal','advisor','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free','part_time']
     .map(r=>`<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
