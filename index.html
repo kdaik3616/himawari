@@ -1593,16 +1593,11 @@ select{
                 <th style="border:1px solid #ccc;padding:6px;width:55px;">時間</th>
                 <th style="border:1px solid #ccc;padding:6px;">年少</th>
                 <th style="border:1px solid #ccc;padding:6px;">年中</th>
-                <th style="border:1px solid #ccc;padding:6px;">年長</th>
+                <th style="border:1px solid #ccc;padding:6px;">年長 / 全体</th>
               </tr>
             </thead>
             <tbody id="hd-activity-body"></tbody>
           </table>
-        </div>
-
-        <div style="margin-top:12px;">
-          <label class="form-label">🍪 おやつのメニュー</label>
-          <input type="text" id="hd-snack" placeholder="例：ごへいもち・お茶" style="width:100%;">
         </div>
 
         <div class="hd-info-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
@@ -1641,12 +1636,38 @@ select{
 
         <div style="margin-top:12px;">
           <label class="form-label" style="display:block;margin-bottom:6px;">全体人数</label>
-          <div class="hd-headcount-row" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
-           <div><label class="field-label">合計（自動）</label><input type="text" id="hd-total" readonly style="width:70px;background:var(--sage-light);color:var(--sage-dark);font-weight:bold;"></div>
-           <div><label class="field-label">15:30</label><input type="number" id="hd-1530" style="width:55px;" oninput="hdUpdateTotal()"></div>
-           <div><label class="field-label">16:30</label><input type="number" id="hd-1630" style="width:55px;" oninput="hdUpdateTotal()"></div>
-           <div><label class="field-label">17:30</label><input type="number" id="hd-1730" style="width:55px;" oninput="hdUpdateTotal()"></div>
-           <div><label class="field-label">18:30</label><input type="number" id="hd-1830" style="width:55px;" oninput="hdUpdateTotal()"></div>
+          <table style="border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:#f5f5f5;">
+                <th style="border:1px solid #ccc;padding:4px;min-width:32px;"></th>
+                <th style="border:1px solid #ccc;padding:4px;min-width:48px;">15:30</th>
+                <th style="border:1px solid #ccc;padding:4px;min-width:48px;">16:30</th>
+                <th style="border:1px solid #ccc;padding:4px;min-width:48px;">17:30</th>
+                <th style="border:1px solid #ccc;padding:4px;min-width:48px;">18:30</th>
+                <th style="border:1px solid #ccc;padding:4px;min-width:56px;background:var(--sage-light);">合計(自動)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;">①</td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1530-a" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1630-a" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1730-a" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1830-a" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:4px;text-align:center;background:var(--sage-light);font-weight:bold;color:var(--sage-dark);"><span id="hd-total-a">-</span></td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;">②</td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1530-b" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1630-b" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1730-b" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:2px;"><input type="number" id="hd-1830-b" style="width:100%;min-width:40px;" oninput="hdUpdateTotal()"></td>
+                <td style="border:1px solid #ccc;padding:4px;text-align:center;background:var(--sage-light);font-weight:bold;color:var(--sage-dark);"><span id="hd-total-b">-</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:6px;font-size:13px;">
+            全体合計：<input type="text" id="hd-total" readonly style="width:70px;background:var(--sage-light);color:var(--sage-dark);font-weight:bold;">
           </div>
         </div>
 
@@ -4212,21 +4233,54 @@ function setExcelColWidths(ws){
 }
 // ==================== HOME DIARY ====================
 let homeDiaryEntries = [];
-const HD_TIMES = ['14:00','15:00','16:00','17:00','18:00','19:00'];
+const HD_TIMES_SPLIT  = ['14:00','15:00'];
+const HD_TIMES_MERGED = ['16:00','17:00','18:00','19:00'];
+const HD_TIMES = [...HD_TIMES_SPLIT, ...HD_TIMES_MERGED];
 
 function hdInitActivityTable() {
   const tbody = document.getElementById('hd-activity-body');
   if (!tbody) return;
-  tbody.innerHTML = HD_TIMES.map(t => {
-    const key = t.replace(':','-');
+
+  // 14:00 → 年少・年中・年長 3列
+  const row1400 = (() => {
+    const key = '14-00';
     return `<tr>
-      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
+      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">14:00</td>
       <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-junior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
       <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-middle" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
       <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-senior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
     </tr>`;
+  })();
+
+  // 15:00 → 上半分：おやつメニュー / 下半分：年少・年中・年長 活動
+  const row1500 = `<tr>
+    <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">15:00</td>
+    <td colspan="3" style="border:1px solid #ccc;padding:0;">
+      <div style="border-bottom:1px dashed #ccc;padding:4px;background:#fffbe6;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:11px;white-space:nowrap;color:#b8860b;">🍪おやつ</span>
+        <input type="text" id="hd-snack" placeholder="メニューを入力" style="flex:1;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:2px 6px;">
+      </div>
+      <div style="display:flex;">
+        <div style="flex:1;border-right:1px solid #ccc;padding:2px;"><textarea id="hd-15-00-junior" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
+        <div style="flex:1;border-right:1px solid #ccc;padding:2px;"><textarea id="hd-15-00-middle" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
+        <div style="flex:1;padding:2px;"><textarea id="hd-15-00-senior" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
+      </div>
+    </td>
+  </tr>`;
+
+  // 16:00〜19:00 → 全クラス合同1列
+  const mergedRows = HD_TIMES_MERGED.map(t => {
+    const key = t.replace(':','-');
+    return `<tr style="background:#f0f4ff;">
+      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
+      <td colspan="3" style="border:1px solid #ccc;padding:2px;">
+        <textarea id="hd-${key}-all" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea>
+      </td>
+    </tr>`;
   }).join('');
-  hdRenderDutySelect(); // ← この1行を末尾に追加
+
+  tbody.innerHTML = row1400 + row1500 + mergedRows;
+  hdRenderDutySelect();
 }
 
 function hdShowTab(tab) {
@@ -4243,12 +4297,18 @@ function saveHomeDiaryEntry() {
   if (!date) { alert('日付を入力してください'); return; }
   const weekdays = ['日','月','火','水','木','金','土'];
   const activities = {};
-  HD_TIMES.forEach(t => {
+  HD_TIMES_SPLIT.forEach(t => {
     const key = t.replace(':','-');
     activities[t] = {
       junior: document.getElementById(`hd-${key}-junior`)?.value||'',
       middle: document.getElementById(`hd-${key}-middle`)?.value||'',
       senior: document.getElementById(`hd-${key}-senior`)?.value||''
+    };
+  });
+  HD_TIMES_MERGED.forEach(t => {
+    const key = t.replace(':','-');
+    activities[t] = {
+      all: document.getElementById(`hd-${key}-all`)?.value||''
     };
   });
 
@@ -4271,11 +4331,15 @@ function saveHomeDiaryEntry() {
     fromParents:   document.getElementById('hd-from-parents').value,
     lostItems:     document.getElementById('hd-lost').value,
     childrenNotes: document.getElementById('hd-children-notes').value,
-    headcountTotal:document.getElementById('hd-total').value,
-    headcount1530: document.getElementById('hd-1530').value,
-    headcount1630: document.getElementById('hd-1630').value,
-    headcount1730: document.getElementById('hd-1730').value,
-    headcount1830: document.getElementById('hd-1830').value,
+    headcountTotal: document.getElementById('hd-total').value,
+    headcount1530a: document.getElementById('hd-1530-a').value,
+    headcount1630a: document.getElementById('hd-1630-a').value,
+    headcount1730a: document.getElementById('hd-1730-a').value,
+    headcount1830a: document.getElementById('hd-1830-a').value,
+    headcount1530b: document.getElementById('hd-1530-b').value,
+    headcount1630b: document.getElementById('hd-1630-b').value,
+    headcount1730b: document.getElementById('hd-1730-b').value,
+    headcount1830b: document.getElementById('hd-1830-b').value,
     savedAt: new Date().toISOString()
   };
 
@@ -4340,15 +4404,33 @@ function _buildHdpHTML(id){
   if(!e) return null;
   const d=new Date(e.date);
   const reiwa=d.getFullYear()-2018;
-  const actRows=HD_TIMES.map(t=>{
+  const act1400 = e.activities['14:00']||{};
+  const act1500 = e.activities['15:00']||{};
+  const splitRows = `<tr>
+      <td class="hdp-time">14:00</td>
+      <td class="hdp-cell">${(act1400.junior||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(act1400.middle||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(act1400.senior||'').replace(/\n/g,'<br>')}</td>
+    </tr>
+    <tr>
+      <td class="hdp-time">15:00</td>
+      <td colspan="3" style="padding:0;border:1px solid #ccc;">
+        <div style="border-bottom:1px dashed #ccc;padding:2px 4px;background:#fffbe6;font-size:7pt;color:#b8860b;">🍪 ${esc(e.snackMenu||'')}</div>
+        <div style="display:flex;">
+          <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.junior||'').replace(/\n/g,'<br>')}</div>
+          <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.middle||'').replace(/\n/g,'<br>')}</div>
+          <div style="flex:1;padding:2px;font-size:8pt;">${(act1500.senior||'').replace(/\n/g,'<br>')}</div>
+        </div>
+      </td>
+    </tr>`;
+  const mergedRows = HD_TIMES_MERGED.map(t=>{
     const a=e.activities[t]||{};
-    return `<tr>
+    return `<tr style="background:#f0f4ff;">
       <td class="hdp-time">${t}</td>
-      <td class="hdp-cell">${(a.junior||'').replace(/\n/g,'<br>')}</td>
-      <td class="hdp-cell">${(a.middle||'').replace(/\n/g,'<br>')}</td>
-      <td class="hdp-cell">${(a.senior||'').replace(/\n/g,'<br>')}</td>
+      <td colspan="3" class="hdp-cell">${(a.all||'').replace(/\n/g,'<br>')}</td>
     </tr>`;
   }).join('');
+  const actRows = splitRows + mergedRows;
   const earlyDutyHTML=(e.earlyDutyStaff||'').split(',').filter(Boolean)
     .map(n=>`<span class="hdp-duty-name" style="border-color:#e53;color:#c00;">${esc(n.trim())}</span>`).join('');
   const lateDutyHTML=(e.lateDutyStaff||'').split(',').filter(Boolean)
@@ -4394,13 +4476,21 @@ function _buildHdpHTML(id){
         </div>
       </div>
       <table class="hdp-count">
-        <tr><th>全体人数</th><th>15:30</th><th>16:30</th><th>17:30</th><th>18:30</th></tr>
+        <tr><th></th><th>15:30</th><th>16:30</th><th>17:30</th><th>18:30</th><th>合計</th></tr>
         <tr>
-          <td>${esc(e.headcountTotal||'')}</td>
-          <td>${esc(e.headcount1530||'')}</td>
-          <td>${esc(e.headcount1630||'')}</td>
-          <td>${esc(e.headcount1730||'')}</td>
-          <td>${esc(e.headcount1830||'')}</td>
+          <td>①</td>
+          <td>${esc(e.headcount1530a||'')}</td>
+          <td>${esc(e.headcount1630a||'')}</td>
+          <td>${esc(e.headcount1730a||'')}</td>
+          <td>${esc(e.headcount1830a||'')}</td>
+          <td rowspan="2" style="font-weight:bold;">${esc(e.headcountTotal||'')}</td>
+        </tr>
+        <tr>
+          <td>②</td>
+          <td>${esc(e.headcount1530b||'')}</td>
+          <td>${esc(e.headcount1630b||'')}</td>
+          <td>${esc(e.headcount1730b||'')}</td>
+          <td>${esc(e.headcount1830b||'')}</td>
         </tr>
       </table>
     </div>`};
@@ -4472,12 +4562,19 @@ function savePDFHomeDiary(id){
   const r=_buildHdpHTML(id);if(!r)return;
   _savePDF(r.html,`ホーム日誌_${r.date}.pdf`);
 }
-  function hdUpdateTotal() {
-  const t1 = parseInt(document.getElementById('hd-1530').value)||0;
-  const t2 = parseInt(document.getElementById('hd-1630').value)||0;
-  const t3 = parseInt(document.getElementById('hd-1730').value)||0;
-  const t4 = parseInt(document.getElementById('hd-1830').value)||0;
-  document.getElementById('hd-total').value = (t1+t2+t3+t4) || '';
+function hdUpdateTotal() {
+  const times = ['1530','1630','1730','1830'];
+  let sumA=0, sumB=0;
+  times.forEach(t => {
+    sumA += parseInt(document.getElementById(`hd-${t}-a`)?.value)||0;
+    sumB += parseInt(document.getElementById(`hd-${t}-b`)?.value)||0;
+  });
+  const elA = document.getElementById('hd-total-a');
+  const elB = document.getElementById('hd-total-b');
+  const elT = document.getElementById('hd-total');
+  if(elA) elA.textContent = sumA || '-';
+  if(elB) elB.textContent = sumB || '-';
+  if(elT) elT.value = (sumA+sumB) || '';
 }
 
 function hdRenderDutySelect(earlySelected, lateSelected) {
