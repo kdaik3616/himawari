@@ -180,6 +180,7 @@ body.ready{opacity:1;transition:opacity 100ms ease;}
   font-size:16px;font-weight:700;
 }
 .avatar-principal{background:linear-gradient(135deg,var(--sun-light),#FFF3B0);color:var(--sun-dark);border:2px solid var(--sun);}
+.avatar-advisor{background:linear-gradient(135deg,var(--sun-light),#FFF3B0);color:var(--sun-dark);border:2px solid var(--sun);}
 .avatar-vice{background:linear-gradient(135deg,#f0e8ff,#e4d4ff);color:#6B3FA0;border:2px solid #C9A0DC;}
 .avatar-staff,.avatar-senior,.avatar-middle,.avatar-junior{background:linear-gradient(135deg,var(--green-light),#d0ecd2);color:var(--green-dark);border:2px solid #A8D5AA;}
 .avatar-head_teacher{background:linear-gradient(135deg,#e0f4f0,#c0e8e0);color:#1a6e5a;border:2px solid #80cdc0;}
@@ -190,6 +191,7 @@ body.ready{opacity:1;transition:opacity 100ms ease;}
 .user-list-no-result{padding:24px;text-align:center;font-size:13px;color:var(--warm-gray);}
 .role-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
 .role-principal{background:var(--sun-light);color:var(--sun-dark);border:1px solid var(--sun);}
+.role-advisor{background:var(--sun-light);color:var(--sun-dark);border:1px solid var(--sun);}
 .role-vice{background:#f0e8ff;color:#6B3FA0;border:1px solid #C9A0DC;}
 .role-staff,.role-senior,.role-middle,.role-junior{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
 .role-head_teacher{background:#e0f4f0;color:#1a6e5a;border:1px solid #80cdc0;}
@@ -1767,6 +1769,7 @@ select{
                       <option value="asst_head">副主任</option>
                       <option value="vice_principal">副園長</option>
                       <option value="principal">園長</option>
+                      <option value="advisor">顧問</option>
                     </select>
                   </div>
                   <div class="field-group"><label class="field-label">初期PIN（4桁）</label><input type="text" id="new-user-pin" placeholder="1234" maxlength="4"></div>
@@ -2077,20 +2080,20 @@ let viewMode='cards'; // ★追加: PC表示モード(cards/table/weekly)の初�
 let currentView='entries'; // ★追加: 現在のビュー(showViewから書き込まれる)
 
 const ROLE_LABEL={
-  'principal':'園長','vice_principal':'副園長',
+  'principal':'園長','advisor':'顧問','vice_principal':'副園長',
   'head_teacher':'主任','asst_head':'副主任',
   'senior':'年長','middle':'年中','junior':'年少',
   'sesame':'セサミ','free':'フリー'
 };
 // お知らせ全区分閲覧可能な役職
-const NOTICE_FULL_ACCESS=['principal','vice_principal','head_teacher','asst_head','free'];
+const NOTICE_FULL_ACCESS=['principal','advisor','vice_principal','head_teacher','asst_head','free'];
 const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
-function isAdmin(u){return u&&['principal','vice_principal'].includes(u.role);}
+function isAdmin(u){return u&&['principal','advisor','vice_principal'].includes(u.role);}
 // 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
 function canViewEntry(u,entry){
-  return u&&(['principal','vice_principal'].includes(u.role)||entry.staff===u.name);
+  return u&&(['principal','advisor','vice_principal'].includes(u.role)||entry.staff===u.name);
 }
 
 // ==================================================
@@ -3101,7 +3104,7 @@ function renderUsersTable(){
   const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理・その他'};
   const gradeOpts=(cur)=>[['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],['null','管理・その他']]
     .map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
-  const roleOpts=(cur)=>['principal','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free']
+  const roleOpts=(cur)=>['principal','advisor','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free']
     .map(r=>`<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
   const ordered=getOrderedUsers()||[...users];
   const sections={};
