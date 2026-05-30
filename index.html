@@ -4598,13 +4598,8 @@ function loadDraftToForm(id) {
       if (el) el.value = act.all || '';
     });
 
-    // チェックボックス（担当者）
-    const early = (e.earlyDutyStaff || '').split(',').filter(Boolean);
-    const late  = (e.lateDutyStaff  || '').split(',').filter(Boolean);
-    document.querySelectorAll('.hd-duty-check-early')
-      .forEach(cb => cb.checked = early.includes(cb.value));
-    document.querySelectorAll('.hd-duty-check-late')
-      .forEach(cb => cb.checked = late.includes(cb.value));
+    // 担当者チェックボックスは hdRenderDutySelect に選択値を渡して再描画する
+    hdRenderDutySelect(e.earlyDutyStaff || '', e.lateDutyStaff || '');
 
     ['hd-shared','hd-from-school','hd-from-parents','hd-lost','hd-children-notes'].forEach(id => {
       const field = id.replace('hd-','');
