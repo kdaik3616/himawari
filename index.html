@@ -1793,7 +1793,7 @@ select{
                   <textarea id="notice-body" class="tall" placeholder="お知らせの内容を入力してください..."></textarea>
                 </div>
                 <div class="field-group" style="margin-bottom:12px;">
-                  <label class="field-label">📎 ファイル添付 <span style="font-size:11px;color:var(--warm-gray);font-weight:normal;">（PDF・Word・Excel等、1ファイル最大10MB）</span></label>
+                  <label class="field-label">📎 ファイル添付 <span style="font-size:11px;color:var(--warm-gray);font-weight:normal;">（PDF・Word・Excel等、合計750KB以内）</span></label>
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
                     <button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('notice-file-input').click()">📂 ファイルを選択</button>
                     <input type="file" id="notice-file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" style="display:none;" multiple onchange="handleNoticeFileSelect(event)">
