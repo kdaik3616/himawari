@@ -1672,6 +1672,19 @@ select{
 
     <!-- 一覧 -->
     <div id="hd-list-pane" style="display:none;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;padding:10px;background:var(--sage-light);border-radius:8px;">
+        <div class="field-group" style="margin:0;">
+          <label class="field-label" style="font-size:11px;">開始日</label>
+          <input type="date" id="hd-filter-from" style="font-size:13px;padding:4px 8px;">
+        </div>
+        <div class="field-group" style="margin:0;">
+          <label class="field-label" style="font-size:11px;">終了日</label>
+          <input type="date" id="hd-filter-to" style="font-size:13px;padding:4px 8px;">
+        </div>
+        <button class="btn-primary btn-sm" onclick="renderHomeDiaryList()">🔍 絞り込み</button>
+        <button class="btn-secondary btn-sm" onclick="document.getElementById('hd-filter-from').value='';document.getElementById('hd-filter-to').value='';renderHomeDiaryList();">リセット</button>
+        <button class="btn-secondary btn-sm" onclick="savePDFHomeDiaryRange()" style="background:var(--green-light);border-color:var(--green-dark);color:var(--green-dark);">📄 期間PDF出力</button>
+      </div>
       <div id="hd-list-content"></div>
     </div>
   </div>
@@ -1700,6 +1713,7 @@ select{
             </div>
             <button class="btn-primary btn-sm" onclick="applyFilters()">🔍 検索</button>
             <button class="btn-secondary btn-sm" onclick="clearFilters()">リセット</button>
+            <button class="btn-secondary btn-sm" id="pdf-filter-btn" onclick="savePDFFiltered()" style="background:var(--green-light);border-color:var(--green-dark);color:var(--green-dark);">📄 絞り込みPDF</button>
             <div style="margin-left:auto;display:flex;gap:8px;">
               <button class="btn-secondary btn-sm print-btn-pc" id="print-btn" style="display:none;" onclick="printSelected()">🖨 印刷</button>
               <button class="btn-secondary btn-sm" id="pdf-bulk-btn" style="display:none;" onclick="savePDFSelected()">📄 PDF保存</button>
@@ -4350,11 +4364,18 @@ function saveHomeDiaryEntry() {
 function renderHomeDiaryList() {
   const el = document.getElementById('hd-list-content');
   if (!el) return;
-  if (!homeDiaryEntries.length) {
-    el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">まだ記録がありません</div>';
+  const fromVal = document.getElementById('hd-filter-from')?.value || '';
+  const toVal   = document.getElementById('hd-filter-to')?.value   || '';
+  const filtered = homeDiaryEntries.filter(e => {
+    if(fromVal && e.date < fromVal) return false;
+    if(toVal   && e.date > toVal)   return false;
+    return true;
+  });
+  const sorted = [...filtered].sort((a,b)=>b.date.localeCompare(a.date));
+  if (!sorted.length) {
+    el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">該当する記録がありません</div>';
     return;
   }
-  const sorted = [...homeDiaryEntries].sort((a,b)=>b.date.localeCompare(a.date));
   el.innerHTML = sorted.map(e=>`
     <div class="entry-card" style="margin-bottom:12px;">
       <div class="entry-card-header">
@@ -4546,9 +4567,40 @@ function savePDFSelected(){
   const html=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
   _savePDF(html,`保育日誌_${list[0].date}.pdf`);
 }
+function savePDFFiltered(){
+  const list = getFiltered().filter(e => canViewEntry(currentUser, e));
+  if(!list.length){ showToast('出力する記録がありません'); return; }
+  const sorted = [...list].sort((a,b)=>a.date.localeCompare(b.date));
+  const pages = [];
+  for(let i=0; i<sorted.length; i+=2) pages.push(sorted.slice(i,i+2));
+  const html = pages.map(pair =>
+    `<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`
+  ).join('');
+  const staffEl = document.getElementById('filter-staff-search');
+  const staffName = staffEl ? staffEl.value : '';
+  const monthEl = document.getElementById('filter-month');
+  const month = monthEl ? monthEl.value : '';
+  const label = [staffName, month].filter(Boolean).join('_') || '全件';
+  _savePDF(html, `保育日誌_${label}.pdf`);
+}
 function savePDFHomeDiary(id){
   const r=_buildHdpHTML(id);if(!r)return;
   _savePDF(r.html,`ホーム日誌_${r.date}.pdf`);
+}
+function savePDFHomeDiaryRange(){
+  const fromVal = document.getElementById('hd-filter-from')?.value || '';
+  const toVal   = document.getElementById('hd-filter-to')?.value   || '';
+  const list = homeDiaryEntries
+    .filter(e => {
+      if(fromVal && e.date < fromVal) return false;
+      if(toVal   && e.date > toVal)   return false;
+      return true;
+    })
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!list.length){ showToast('出力する記録がありません'); return; }
+  const html = list.map(e => _buildHdpHTML(e.id)?.html || '').filter(Boolean).join('');
+  const label = [fromVal, toVal].filter(Boolean).join('〜') || '全件';
+  _savePDF(html, `ホーム日誌_${label}.pdf`);
 }
 function hdUpdateTotal() {
   const times = ['1530','1630','1730','1830'];
