@@ -3402,7 +3402,7 @@ function buildPrintDay(e){
   return `
   <div class="print-day">
     <div class="print-header-row">
-      <span>${d.getMonth()+1}月 第${getWeek(e.date)}週 ／ ${e.staff}</span>
+      <span>${d.getMonth()+1}月 ／ ${e.staff}</span>
       <span>${e.fiscalYear}年度</span>
     </div>
     <div class="print-weekly">
@@ -4406,7 +4406,7 @@ function _buildHdpHTML(id){
     <tr>
       <td class="hdp-time">15:00</td>
       <td colspan="3" style="padding:0;border:1px solid #ccc;">
-        <div style="border-bottom:1px dashed #ccc;padding:2px 4px;background:#fffbe6;font-size:7pt;color:#b8860b;">🍪 ${esc(e.snackMenu||'')}</div>
+        <div style="border-bottom:1px dashed #ccc;padding:2px 4px;background:#fffbe6;font-size:7pt;color:#b8860b;">おやつの時間　${esc(e.snackMenu||'')}</div>
         <div style="display:flex;">
           <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.junior||'').replace(/\n/g,'<br>')}</div>
           <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.middle||'').replace(/\n/g,'<br>')}</div>
@@ -4448,7 +4448,7 @@ function _buildHdpHTML(id){
             </thead>
             <tbody>${actRows}</tbody>
           </table>
-          <div class="hdp-snack"><b>おやつの時間</b>　【メニュー】${esc(e.snackMenu||'')}</div>
+
         </div>
         <div class="hdp-right">
           <div class="hdp-rs"><div class="hdp-rl">担当</div>
