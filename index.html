@@ -2029,7 +2029,7 @@ const NOTICE_FULL_ACCESS=['principal','vice_principal','head_teacher','asst_head
 const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
 const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
 
-function isAdmin(u){return u&&['principal','vice_principal','head_teacher'].includes(u.role);}
+function isAdmin(u){return u&&['principal','vice_principal'].includes(u.role);}
 // 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
 function canViewEntry(u,entry){
   return u&&(['principal','vice_principal'].includes(u.role)||entry.staff===u.name);
@@ -3990,7 +3990,7 @@ function rangesBadges(ranges){
 function buildNoticeCard(n){
   const u=currentUser;
   const isRead=!!(n.readBy||[]).find(r=>r.userId===u.id);
-  const canDelete=isAdmin(u)||n.authorId===u.id;
+  const canDelete=isAdmin(u)||n.authorId===u.id||n.authorName===u.name;
   const rangesHTML=rangesBadges(n.ranges);
 
   // 確認状況（全員に表示）
