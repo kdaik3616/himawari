@@ -183,6 +183,7 @@ body.ready{opacity:1;transition:opacity 100ms ease;}
 .avatar-advisor{background:linear-gradient(135deg,var(--sun-light),#FFF3B0);color:var(--sun-dark);border:2px solid var(--sun);}
 .avatar-vice{background:linear-gradient(135deg,#f0e8ff,#e4d4ff);color:#6B3FA0;border:2px solid #C9A0DC;}
 .avatar-staff,.avatar-senior,.avatar-middle,.avatar-junior{background:linear-gradient(135deg,var(--green-light),#d0ecd2);color:var(--green-dark);border:2px solid #A8D5AA;}
+.avatar-part_time{background:linear-gradient(135deg,var(--green-light),#d0ecd2);color:var(--green-dark);border:2px solid #A8D5AA;}
 .avatar-head_teacher{background:linear-gradient(135deg,#e0f4f0,#c0e8e0);color:#1a6e5a;border:2px solid #80cdc0;}
 .avatar-asst_head{background:linear-gradient(135deg,#e8f8f4,#c8eee8);color:#2a8a72;border:2px solid #a0ddd0;}
 .avatar-sesame{background:linear-gradient(135deg,#ffe8f0,#ffd0e4);color:#a0386a;border:2px solid #f0a8c0;}
@@ -194,6 +195,7 @@ body.ready{opacity:1;transition:opacity 100ms ease;}
 .role-advisor{background:var(--sun-light);color:var(--sun-dark);border:1px solid var(--sun);}
 .role-vice{background:#f0e8ff;color:#6B3FA0;border:1px solid #C9A0DC;}
 .role-staff,.role-senior,.role-middle,.role-junior{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
+.role-part_time{background:var(--green-light);color:var(--green-dark);border:1px solid #A8D5AA;}
 .role-head_teacher{background:#e0f4f0;color:#1a6e5a;border:1px solid #80cdc0;}
 .role-asst_head{background:#e8f8f4;color:#2a8a72;border:1px solid #a0ddd0;}
 .role-sesame{background:#ffe8f0;color:#a0386a;border:1px solid #f0a8c0;}
@@ -1765,6 +1767,7 @@ select{
                       <option value="junior">年少</option>
                       <option value="sesame">セサミ</option>
                       <option value="free">フリー</option>
+                      <option value="part_time">アルバイト</option>
                       <option value="head_teacher">主任</option>
                       <option value="asst_head">副主任</option>
                       <option value="vice_principal">副園長</option>
@@ -2083,7 +2086,7 @@ const ROLE_LABEL={
   'principal':'園長','advisor':'顧問','vice_principal':'副園長',
   'head_teacher':'主任','asst_head':'副主任',
   'senior':'年長','middle':'年中','junior':'年少',
-  'sesame':'セサミ','free':'フリー'
+  'sesame':'セサミ','free':'フリー','part_time':'アルバイト'
 };
 // お知らせ全区分閲覧可能な役職
 const NOTICE_FULL_ACCESS=['principal','advisor','vice_principal','head_teacher','asst_head','free'];
@@ -3141,7 +3144,7 @@ function renderUsersTable(){
   const GRADE_LABELS={'senior':'🌱 年長','middle':'🌸 年中','junior':'🌼 年少','sesame':'⭐ セサミ',null:'🏛 管理・その他'};
   const gradeOpts=(cur)=>[['senior','年長'],['middle','年中'],['junior','年少'],['sesame','セサミ'],['null','管理・その他']]
     .map(([v,l])=>`<option value="${v}" ${String(cur)===v?'selected':''}>${l}</option>`).join('');
-  const roleOpts=(cur)=>['principal','advisor','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free']
+  const roleOpts=(cur)=>['principal','advisor','vice_principal','head_teacher','asst_head','senior','middle','junior','sesame','free','part_time']
     .map(r=>`<option value="${r}" ${cur===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('');
   const ordered=getOrderedUsers()||[...users];
   const sections={};
@@ -3960,8 +3963,12 @@ let noticeSelectedRanges=new Set(['all']);
 
 function canSeeNotice(u,n){
   const ranges=n.ranges||['all'];
-  if(ranges.includes('all')) return true;
   if(isAdmin(u)) return true;
+  // アルバイトは全体（all）のみ
+  if(u.role==='part_time'){
+    return ranges.includes('all');
+  }
+  if(ranges.includes('all')) return true;
   const grade=getUserGrade(u);
   if(!grade) return true;  // 学年未設定・フリーは全て閲覧可能
   const norm=r=>(r==='sesami'?'sesame':r);
