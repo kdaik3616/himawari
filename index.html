@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://firebasestorage.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self';">
   <script>
   (function(){try{var s=localStorage.getItem('ls_session');if(s){var x=JSON.parse(s);if(x.userId&&x.loginAt&&Date.now()-x.loginAt<86400000)document.documentElement.classList.add('pre-auth');}}catch(e){}}());
   </script>
@@ -1793,7 +1793,7 @@ select{
                   <textarea id="notice-body" class="tall" placeholder="お知らせの内容を入力してください..."></textarea>
                 </div>
                 <div class="field-group" style="margin-bottom:12px;">
-                  <label class="field-label">📎 ファイル添付 <span style="font-size:11px;color:var(--warm-gray);font-weight:normal;">（PDF・Word・Excel等、1ファイル750KB以内）</span></label>
+                  <label class="field-label">📎 ファイル添付 <span style="font-size:11px;color:var(--warm-gray);font-weight:normal;">（PDF・Word・Excel等、1ファイル最大10MB）</span></label>
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
                     <button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('notice-file-input').click()">📂 ファイルを選択</button>
                     <input type="file" id="notice-file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" style="display:none;" multiple onchange="handleNoticeFileSelect(event)">
@@ -1884,6 +1884,35 @@ select{
 const FB_PROJECT = 'himawari-nisshi';
 const FB_KEY = 'AIzaSyDJKgUjL41QqTpABXKvvT_oLHmylan_Vac';
 const FB_BASE = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
+const FB_STORAGE_BASE = `https://firebasestorage.googleapis.com/v0/b/${FB_PROJECT}.appspot.com/o`;
+
+async function fsStorageUpload(path, blob, contentType) {
+  const token = await getFbAuthToken();
+  const headers = { 'Content-Type': contentType };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const encodedPath = encodeURIComponent(path);
+  const r = await fetch(`${FB_STORAGE_BASE}/${encodedPath}?uploadType=media&name=${encodedPath}&key=${FB_KEY}`, {
+    method: 'POST', headers, body: blob
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error('Storage upload error: ' + (err.error?.message || r.status));
+  }
+  return await r.json();
+}
+
+function fsStorageUrl(path, downloadToken) {
+  const encodedPath = encodeURIComponent(path);
+  return `${FB_STORAGE_BASE}/${encodedPath}?alt=media&token=${downloadToken}&key=${FB_KEY}`;
+}
+
+async function fsStorageDelete(path) {
+  const token = await getFbAuthToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const encodedPath = encodeURIComponent(path);
+  await fetch(`${FB_STORAGE_BASE}/${encodedPath}?key=${FB_KEY}`, { method: 'DELETE', headers });
+}
 const COLL_USERS   = 'h_users';
 const COLL_ENTRIES = 'h_entries';
 const COLL_NOTICES = 'h_notices';
@@ -3944,12 +3973,11 @@ function toggleRange(el,val){
   }
 }
 
-// 添付ファイルの一時保持
-let _noticeFiles = []; // [{name, type, size, base64}]
+// 添付ファイル一時保持（File オブジェクトのまま保持）
+let _noticeFiles = []; // File[]
 
-// ファイルアイコン取得
 function getFileIcon(name) {
-  const ext = name.split('.').pop().toLowerCase();
+  const ext = (name.split('.').pop() || '').toLowerCase();
   if (ext === 'pdf') return '📄';
   if (['doc','docx'].includes(ext)) return '📝';
   if (['xls','xlsx'].includes(ext)) return '📊';
@@ -3958,29 +3986,19 @@ function getFileIcon(name) {
 }
 
 function handleNoticeFileSelect(event) {
+  const MAX = 10 * 1024 * 1024; // 10MB
   const files = [...event.target.files];
-  const MAX_BYTES = 750 * 1024; // 750KB
   const errors = [];
-
-  files.forEach(file => {
-    if (file.size > MAX_BYTES) {
-      errors.push(`「${file.name}」は750KBを超えています（${Math.round(file.size/1024)}KB）`);
+  files.forEach(f => {
+    if (f.size > MAX) {
+      errors.push(`「${f.name}」は10MBを超えています（${Math.round(f.size/1024/1024*10)/10}MB）`);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result.split(',')[1];
-      _noticeFiles.push({ name: file.name, type: file.type, size: file.size, base64 });
-      renderNoticeFilePreview();
-    };
-    reader.readAsDataURL(file);
+    _noticeFiles.push(f);
   });
-
   event.target.value = '';
-
-  if (errors.length) {
-    showToast('⚠️ ' + errors.join(' / '));
-  }
+  renderNoticeFilePreview();
+  if (errors.length) showToast('⚠️ ' + errors.join(' / '));
 }
 
 function renderNoticeFilePreview() {
@@ -3998,7 +4016,8 @@ function renderNoticeFilePreview() {
       <span>${getFileIcon(f.name)}</span>
       <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
       <span style="color:var(--warm-gray);">${Math.round(f.size/1024)}KB</span>
-      <button type="button" onclick="removeNoticeFile(${i})" style="background:none;border:none;cursor:pointer;color:#c00;font-size:14px;padding:0;line-height:1;">✕</button>
+      <button type="button" onclick="removeNoticeFile(${i})"
+        style="background:none;border:none;cursor:pointer;color:#c00;font-size:14px;padding:0;line-height:1;">✕</button>
     </div>`).join('');
 }
 
@@ -4008,37 +4027,50 @@ function removeNoticeFile(index) {
 }
 
 async function postNotice(){
-  const title=document.getElementById('notice-title').value.trim();
-  const body=document.getElementById('notice-body').value.trim();
-  if(!title||!body){showToast('⚠️ タイトルと内容を入力してください');return;}
-  const ranges=noticeSelectedRanges.size?[...noticeSelectedRanges]:['all'];
+  const title = document.getElementById('notice-title').value.trim();
+  const body  = document.getElementById('notice-body').value.trim();
+  if (!title || !body) { showToast('⚠️ タイトルと内容を入力してください'); return; }
+  const ranges = noticeSelectedRanges.size ? [...noticeSelectedRanges] : ['all'];
+  const noticeId = String(Date.now());
 
-  const totalSize = _noticeFiles.reduce((s,f)=>s+f.size,0);
-  if(totalSize > 750*1024){
-    showToast('⚠️ 添付ファイルの合計サイズが750KBを超えています');
-    return;
+  const attachments = [];
+  if (_noticeFiles.length) {
+    showToast('📤 ファイルをアップロード中…');
+    for (const file of _noticeFiles) {
+      try {
+        const path = `notices/${noticeId}/${file.name}`;
+        const meta = await fsStorageUpload(path, file, file.type || 'application/octet-stream');
+        const token = meta.downloadTokens || '';
+        attachments.push({ name: file.name, type: file.type, size: file.size, path, token });
+      } catch(e) {
+        showToast('⚠️ アップロード失敗: ' + file.name);
+        console.error(e);
+        return;
+      }
+    }
   }
 
-  const n={
-    id:Date.now(),
-    title,body,ranges,
-    authorId:currentUser.id,
-    authorName:currentUser.name,
-    authorRole:currentUser.role,
-    createdAt:new Date().toISOString(),
-    readBy:[],
-    attachments: _noticeFiles.map(f=>({name:f.name, type:f.type, size:f.size, base64:f.base64}))
+  const n = {
+    id: Number(noticeId),
+    title, body, ranges,
+    authorId:   currentUser.id,
+    authorName: currentUser.name,
+    authorRole: currentUser.role,
+    createdAt:  new Date().toISOString(),
+    readBy: [],
+    attachments
   };
-  n.readBy.push({userId:currentUser.id,userName:currentUser.name,role:currentUser.role,readAt:new Date().toISOString()});
-  try{
-    await fsSet(COLL_NOTICES,String(n.id),n);
-    document.getElementById('notice-title').value='';
-    document.getElementById('notice-body').value='';
-    _noticeFiles=[];
+  n.readBy.push({ userId: currentUser.id, userName: currentUser.name, role: currentUser.role, readAt: new Date().toISOString() });
+
+  try {
+    await fsSet(COLL_NOTICES, noticeId, n);
+    document.getElementById('notice-title').value = '';
+    document.getElementById('notice-body').value  = '';
+    _noticeFiles = [];
     renderNoticeFilePreview();
     toggleNoticeForm();
     showToast('📢 お知らせを投稿しました');
-  }catch(e){showToast('⚠️ エラー: '+e.message);}
+  } catch(e) { showToast('⚠️ エラー: ' + e.message); }
 }
 
 async function markNoticeRead(nid){
@@ -4055,6 +4087,13 @@ async function markNoticeRead(nid){
 
 async function deleteNotice(nid){
   if(!confirm('このお知らせを削除しますか？'))return;
+  // Storageの添付ファイルも削除
+  const target = notices.find(n => n.id === nid);
+  if (target && target.attachments && target.attachments.length) {
+    for (const f of target.attachments) {
+      fsStorageDelete(f.path).catch(e => console.warn('Storage delete error:', e));
+    }
+  }
   notices = notices.filter(n => n.id !== nid);
   saveLocal();
   updateNoticeBadge();
@@ -4157,14 +4196,17 @@ function buildNoticeCard(n){
 
   const attachHTML = (n.attachments && n.attachments.length) ? `
     <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;">
-      ${n.attachments.map((f,i)=>`
-        <button type="button"
-          onclick="downloadNoticeFile(${n.id},${i})"
-          style="display:flex;align-items:center;gap:5px;padding:5px 12px;background:var(--sage-light);border:1px solid var(--sage);border-radius:16px;cursor:pointer;font-size:12px;color:var(--sage-dark);">
-          ${getFileIcon(f.name)} <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
-          <span style="color:var(--warm-gray);">${Math.round(f.size/1024)}KB</span>
-          ⬇
-        </button>`).join('')}
+      ${n.attachments.map(f => {
+        const url = fsStorageUrl(f.path, f.token);
+        return `<a href="${url}" target="_blank" download="${esc(f.name)}"
+          style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+                 background:var(--sage-light);border:1px solid var(--sage);border-radius:16px;
+                 text-decoration:none;font-size:12px;color:var(--sage-dark);">
+          ${getFileIcon(f.name)}
+          <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
+          <span style="color:var(--warm-gray);">${Math.round(f.size/1024)}KB</span> ⬇
+        </a>`;
+      }).join('')}
     </div>` : '';
 
   const readSection=`
