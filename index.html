@@ -4378,7 +4378,7 @@ function buildNoticeCard(n){
   const rangesHTML=rangesBadges(n.ranges);
 
   // 確認状況（全員に表示）
-  const eligible=users.filter(x=>canSeeNotice(x,n));
+  const eligible=(getOrderedUsers()||[...users]).filter(x=>canSeeNotice(x,n));
   const readIds=new Set((n.readBy||[]).map(r=>r.userId));
   const readList=(n.readBy||[]).map(r=>`
     <div class="notice-read-item">
