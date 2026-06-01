@@ -2019,6 +2019,18 @@ async function fsGetAll(coll){
   }
 }
 
+async function fetchUsers(){
+  try{
+    const cached=JSON.parse(localStorage.getItem('cache_h_users')||'null');
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<3600000) return cached.data;
+  }catch(e){}
+  const data=await fsGetAll(COLL_USERS);
+  if(data.length){
+    try{localStorage.setItem('cache_h_users',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
+  }
+  return data;
+}
+
 async function fsGet(coll,docId){
   try{
     const token=await getFbAuthToken();
@@ -2116,7 +2128,7 @@ async function init(){
   loadLocal();
   // Firebaseからも非同期で同期
   try{
-    const fu=await fsGetAll(COLL_USERS);
+    const fu=await fetchUsers();
     if(fu.length){ users=fu; saveLocal(); }
     else if(!users.length){ await initDefaultUsersDb(); }
     const fe=await fsGetAll(COLL_ENTRIES);
@@ -3876,7 +3888,7 @@ function renderEntriesWeekly(filtered){
 async function pollData(){
   try{
     const [nu,ne,nn,nh,orderDoc]=await Promise.all([
-      fsGetAll(COLL_USERS),
+      fetchUsers(),
       fsGetAll(COLL_ENTRIES),
       fsGetAll(COLL_NOTICES),
       fsGetAll(COLL_HOMEDIARY),
