@@ -2022,11 +2022,47 @@ async function fsGetAll(coll){
 async function fetchUsers(){
   try{
     const cached=JSON.parse(localStorage.getItem('cache_h_users')||'null');
-    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<3600000) return cached.data;
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<86400000) return cached.data;
   }catch(e){}
   const data=await fsGetAll(COLL_USERS);
   if(data.length){
     try{localStorage.setItem('cache_h_users',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
+  }
+  return data;
+}
+
+async function fetchEntries(){
+  try{
+    const cached=JSON.parse(localStorage.getItem('cache_h_entries')||'null');
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data;
+  }catch(e){}
+  const data=await fsGetAll(COLL_ENTRIES);
+  if(data.length){
+    try{localStorage.setItem('cache_h_entries',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
+  }
+  return data;
+}
+
+async function fetchNotices(){
+  try{
+    const cached=JSON.parse(localStorage.getItem('cache_h_notices')||'null');
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<1800000) return cached.data;
+  }catch(e){}
+  const data=await fsGetAll(COLL_NOTICES);
+  if(data.length){
+    try{localStorage.setItem('cache_h_notices',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
+  }
+  return data;
+}
+
+async function fetchHomeDiary(){
+  try{
+    const cached=JSON.parse(localStorage.getItem('cache_homediary')||'null');
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data;
+  }catch(e){}
+  const data=await fsGetAll(COLL_HOMEDIARY);
+  if(data.length){
+    try{localStorage.setItem('cache_homediary',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
   }
   return data;
 }
@@ -2131,9 +2167,9 @@ async function init(){
     const fu=await fetchUsers();
     if(fu.length){ users=fu; saveLocal(); }
     else if(!users.length){ await initDefaultUsersDb(); }
-    const fe=await fsGetAll(COLL_ENTRIES);
+    const fe=await fetchEntries();
     if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); }
-    const fn=await fsGetAll(COLL_NOTICES);
+    const fn=await fetchNotices();
     if(fn.length){ notices=fn.filter(n=>n.title&&n.authorName&&n.createdAt); notices.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); saveLocal(); }
   }catch(e){ console.warn('Firebase sync error:',e); }
   // 並び順をFirestoreから取得（旧localStorage値があれば移行して削除）
@@ -2954,7 +2990,7 @@ function renderEntries(){
   // データがない場合はFirebaseから再取得を試みる
   if(!entries.length && currentUser){
     c.innerHTML=`<div class="no-data"><div class="no-data-icon">🔄</div><div class="no-data-text">読み込み中...</div></div>`;
-    fsGetAll(COLL_ENTRIES).then(fe=>{
+    fetchEntries().then(fe=>{
       if(fe.length){ entries=fe; entries.sort((a,b)=>b.date.localeCompare(a.date)); saveLocal(); renderEntries(); }
     }).catch(()=>{});
     return;
@@ -3889,9 +3925,9 @@ async function pollData(){
   try{
     const [nu,ne,nn,nh,orderDoc]=await Promise.all([
       fetchUsers(),
-      fsGetAll(COLL_ENTRIES),
-      fsGetAll(COLL_NOTICES),
-      fsGetAll(COLL_HOMEDIARY),
+      fetchEntries(),
+      fetchNotices(),
+      fetchHomeDiary(),
       fsGet(COLL_CONFIG,'loginOrder')
     ]);
     // 並び順を同期（他端末で変更された場合に反映）
