@@ -4380,11 +4380,14 @@ function buildNoticeCard(n){
   // 確認状況（全員に表示）
   const eligible=(getOrderedUsers()||[...users]).filter(x=>canSeeNotice(x,n));
   const readIds=new Set((n.readBy||[]).map(r=>r.userId));
-  const readList=(n.readBy||[]).map(r=>`
-    <div class="notice-read-item">
+  const readByMap=new Map((n.readBy||[]).map(r=>[r.userId,r]));
+  const readList=eligible.filter(x=>readByMap.has(x.id)).map(x=>{
+    const r=readByMap.get(x.id);
+    return `<div class="notice-read-item">
       ✓ ${r.userName}
       <span class="notice-read-time">${fmtDt(r.readAt)}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const unreadList=eligible.filter(x=>!readIds.has(x.id)).map(x=>`
     <div class="notice-unread-item">⏳ ${x.name}</div>`).join('');
 
