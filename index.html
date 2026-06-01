@@ -2247,7 +2247,7 @@ function saveLocal(){
 function saveStorage(){} // no-op: Firestore handles saves
 
 async function initDefaultUsersDb(){
-  const u={id:'u1',name:'園長',role:'principal',pin:'1234'};
+  const u={id:'u1',name:'管理者',role:'principal',pin:'5678'};
   await fsSet(COLL_USERS,'u1',u);
   users=[u];
 }
