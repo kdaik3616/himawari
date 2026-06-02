@@ -4613,53 +4613,40 @@ function setExcelColWidths(ws){
 }
 // ==================== HOME DIARY ====================
 let homeDiaryEntries = [];
-const HD_TIMES_SPLIT  = ['14:00','15:00'];
-const HD_TIMES_MERGED = ['16:00','17:00','18:00','19:00'];
+const HD_TIMES_SPLIT  = ['14:30'];
+const HD_TIMES_MERGED = ['15:30'];
 const HD_TIMES = [...HD_TIMES_SPLIT, ...HD_TIMES_MERGED];
 
 function hdInitActivityTable() {
   const tbody = document.getElementById('hd-activity-body');
   if (!tbody) return;
 
-  // 14:00 → 年少・年中・年長 3列
-  const row1400 = (() => {
-    const key = '14-00';
-    return `<tr>
-      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">14:00</td>
-      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-junior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
-      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-middle" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
-      <td style="border:1px solid #ccc;padding:2px;"><textarea id="hd-${key}-senior" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></td>
-    </tr>`;
-  })();
+  const row1430 = `<tr>
+    <td style="border:1px solid #ccc;padding:6px;width:55px;text-align:center;font-size:13px;vertical-align:middle;">14:30</td>
+    <td style="border:1px solid #ccc;padding:4px;"><textarea id="hd-14-30-junior" rows="3" style="width:100%;resize:vertical;font-size:13px;box-sizing:border-box;" placeholder="年少"></textarea></td>
+    <td style="border:1px solid #ccc;padding:4px;"><textarea id="hd-14-30-middle" rows="3" style="width:100%;resize:vertical;font-size:13px;box-sizing:border-box;" placeholder="年中"></textarea></td>
+    <td style="border:1px solid #ccc;padding:4px;"><textarea id="hd-14-30-senior" rows="3" style="width:100%;resize:vertical;font-size:13px;box-sizing:border-box;" placeholder="年長"></textarea></td>
+  </tr>`;
 
-  // 15:00 → 上半分：おやつメニュー / 下半分：年少・年中・年長 活動
   const row1500 = `<tr>
-    <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">15:00</td>
+    <td style="border:1px solid #ccc;padding:6px;width:55px;text-align:center;font-size:13px;vertical-align:middle;">15:00</td>
     <td colspan="3" style="border:1px solid #ccc;padding:0;">
-      <div style="border-bottom:1px dashed #ccc;padding:4px;background:#fffbe6;display:flex;align-items:center;gap:6px;">
-        <span style="font-size:11px;white-space:nowrap;color:#b8860b;">🍪おやつ</span>
-        <input type="text" id="hd-snack" placeholder="メニューを入力" style="flex:1;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:2px 6px;">
-      </div>
-      <div style="display:flex;">
-        <div style="flex:1;border-right:1px solid #ccc;padding:2px;"><textarea id="hd-15-00-junior" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
-        <div style="flex:1;border-right:1px solid #ccc;padding:2px;"><textarea id="hd-15-00-middle" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
-        <div style="flex:1;padding:2px;"><textarea id="hd-15-00-senior" rows="2" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea></div>
+      <div style="background:#fffbe6;padding:6px 8px;display:flex;align-items:center;gap:8px;font-size:13px;">
+        <span style="color:#b07a00;">🍪 おやつ</span>
+        <input type="text" id="hd-snack" placeholder="メニューを入力" style="flex:1;border:none;background:transparent;font-size:13px;outline:none;">
       </div>
     </td>
   </tr>`;
 
-  // 16:00〜19:00 → 全クラス合同1列
-  const mergedRows = HD_TIMES_MERGED.map(t => {
-    const key = t.replace(':','-');
-    return `<tr style="background:#f0f4ff;">
-      <td style="border:1px solid #ccc;padding:4px;text-align:center;font-size:12px;white-space:nowrap;">${t}</td>
-      <td colspan="3" style="border:1px solid #ccc;padding:2px;">
-        <textarea id="hd-${key}-all" rows="3" style="width:100%;font-size:12px;border:none;resize:vertical;"></textarea>
-      </td>
-    </tr>`;
-  }).join('');
+  const row1530 = `<tr>
+    <td style="border:1px solid #ccc;padding:6px;width:55px;text-align:center;font-size:13px;vertical-align:middle;">15:30〜</td>
+    <td colspan="3" style="border:1px solid #ccc;padding:4px;">
+      <div style="font-size:11px;color:#999;margin-bottom:2px;">活動記録</div>
+      <textarea id="hd-15-30-all" rows="5" style="width:100%;resize:vertical;font-size:13px;box-sizing:border-box;" placeholder="自由記述..."></textarea>
+    </td>
+  </tr>`;
 
-  tbody.innerHTML = row1400 + row1500 + mergedRows;
+  tbody.innerHTML = row1430 + row1500 + row1530;
   hdRenderDutySelect();
 }
 
@@ -4678,18 +4665,14 @@ function _buildHdEntry() {
   if (!date) { alert('日付を入力してください'); return null; }
   const weekdays = ['日','月','火','水','木','金','土'];
   const activities = {};
-  HD_TIMES_SPLIT.forEach(t => {
-    const key = t.replace(':','-');
-    activities[t] = {
-      junior: document.getElementById(`hd-${key}-junior`)?.value||'',
-      middle: document.getElementById(`hd-${key}-middle`)?.value||'',
-      senior: document.getElementById(`hd-${key}-senior`)?.value||''
-    };
-  });
-  HD_TIMES_MERGED.forEach(t => {
-    const key = t.replace(':','-');
-    activities[t] = { all: document.getElementById(`hd-${key}-all`)?.value||'' };
-  });
+  activities['14:30'] = {
+    junior: document.getElementById('hd-14-30-junior')?.value || '',
+    middle: document.getElementById('hd-14-30-middle')?.value || '',
+    senior: document.getElementById('hd-14-30-senior')?.value || ''
+  };
+  activities['15:30'] = {
+    all: document.getElementById('hd-15-30-all')?.value || ''
+  };
   const existing = homeDiaryEntries.find(e=>e.date===date);
   const docId = String(existing?.id || Date.now());
   return {
@@ -4776,20 +4759,14 @@ function loadDraftToForm(id) {
     document.getElementById('hd-late').value    = e.lateStaff  || '';
     document.getElementById('hd-snack').value   = e.snackMenu  || '';
 
-    HD_TIMES_SPLIT.forEach(t => {
-      const key = t.replace(':','-');
-      const act = e.activities?.[t] || {};
-      ['junior','middle','senior'].forEach(g => {
-        const el = document.getElementById(`hd-${key}-${g}`);
-        if (el) el.value = act[g] || '';
-      });
+    const act1430 = e.activities?.['14:30'] || {};
+    ['junior','middle','senior'].forEach(g => {
+      const el = document.getElementById(`hd-14-30-${g}`);
+      if (el) el.value = act1430[g] || '';
     });
-    HD_TIMES_MERGED.forEach(t => {
-      const key = t.replace(':','-');
-      const act = e.activities?.[t] || {};
-      const el = document.getElementById(`hd-${key}-all`);
-      if (el) el.value = act.all || '';
-    });
+    const act1530 = e.activities?.['15:30'] || {};
+    const el1530 = document.getElementById('hd-15-30-all');
+    if (el1530) el1530.value = act1530.all || '';
 
     // 担当者チェックボックスは hdRenderDutySelect に選択値を渡して再描画する
     hdRenderDutySelect(e.earlyDutyStaff || '', e.lateDutyStaff || '', e.mainDutyStaff || '');
