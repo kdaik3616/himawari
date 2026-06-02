@@ -4847,7 +4847,7 @@ function saveDraftHomeDiary() {
 
   fsSet(COLL_HOMEDIARY, String(entry.id), entry)
     .then(() => showToast('📝 下書きを保存しました（全員に共有されました）'))
-    .catch(() => showSaveError('⚠️ 下書きの共有に失敗しました。もう一度保存してください。'));
+    .catch(() => showToast('⚠️ 下書きの共有に失敗しました。もう一度保存してください。'));
 }
 
 // 確定保存：localStorageとFirestore両方に保存
