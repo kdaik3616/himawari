@@ -4801,15 +4801,53 @@ function loadDraftToForm(id) {
 function saveDraftHomeDiary() {
   const entry = _buildHdEntry();
   if (!entry) return;
+
   entry.isDraft = true;
-  homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==entry.id);
+  entry.lastEditedBy = currentUser?.name || '';
+  entry.lastEditedAt = new Date().toISOString();
+
+  // 既存データとマージ（空欄フィールドは既存値を保持）
+  const existing = homeDiaryEntries.find(e => e.id === entry.id);
+  if (existing) {
+    // テキスト系フィールド：新しい値が空なら既存値を使う
+    const mergeFields = [
+      'earlyStaff','lateStaff','snackMenu','sharedInfo',
+      'fromSchool','fromParents','lostItems','childrenNotes',
+      'earlyDutyStaff','lateDutyStaff','mainDutyStaff',
+      'headcount1530','headcount1630','headcount1730','headcount1830','headcountManual',
+      'weather','weekday','fiscalYear','dailyGoal','weeklyGoal'
+    ];
+    mergeFields.forEach(key => {
+      if(!entry[key] && existing[key]) entry[key] = existing[key];
+    });
+
+    // 活動記録のマージ（時間帯ごとに空なら既存値を使う）
+    if(existing.activities) {
+      entry.activities = entry.activities || {};
+      Object.keys(existing.activities).forEach(time => {
+        if(!entry.activities[time]) {
+          entry.activities[time] = existing.activities[time];
+        } else {
+          // 同じ時間帯でもフィールドごとにマージ
+          Object.keys(existing.activities[time]).forEach(field => {
+            if(!entry.activities[time][field] && existing.activities[time][field]) {
+              entry.activities[time][field] = existing.activities[time][field];
+            }
+          });
+        }
+      });
+    }
+  }
+
+  homeDiaryEntries = homeDiaryEntries.filter(e => e.id !== entry.id);
   homeDiaryEntries.push(entry);
-  homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
+  homeDiaryEntries.sort((a,b) => b.date.localeCompare(a.date));
   saveLocal();
-  // Firestoreにも保存して全員に共有
+  localStorage.removeItem('cache_homediary');
+
   fsSet(COLL_HOMEDIARY, String(entry.id), entry)
-    .then(()=>showToast('📝 下書きを保存しました（全員に共有されました）'))
-    .catch(()=>showToast('⚠️ 下書きの共有に失敗しました'));
+    .then(() => showToast('📝 下書きを保存しました（全員に共有されました）'))
+    .catch(() => showSaveError('⚠️ 下書きの共有に失敗しました。もう一度保存してください。'));
 }
 
 // 確定保存：localStorageとFirestore両方に保存
