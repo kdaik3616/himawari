@@ -5187,7 +5187,7 @@ window.addEventListener('afterprint',function(){
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', () =>
-    navigator.serviceWorker.register('./service-worker.js?v=' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1'))
+    navigator.serviceWorker.register('./service-worker.js?v=' + Date.now())
       .catch(e => console.warn('SW register failed:', e))
   );
 }
