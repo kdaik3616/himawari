@@ -1343,6 +1343,12 @@ select{
   color:#005bb5;
   font-weight:bold;
 }
+.hd-duty-chip.selected-main{
+  background:#888;
+  color:#fff;
+  border-color:#666;
+  font-weight:bold;
+}
 /* ====== 新着お知らせ通知ポップアップ ====== */
 .notice-alert{
   position:fixed;top:16px;left:50%;transform:translateX(-50%);
@@ -1617,7 +1623,10 @@ select{
             <div style="font-size:12px;color:#e53;font-weight:bold;margin-bottom:4px;">🔴 早番</div>
             <div id="hd-duty-early-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
             <div style="font-size:12px;color:#36a;font-weight:bold;margin-bottom:4px;">🔵 遅番</div>
-            <div id="hd-duty-late-wrap" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+            <div id="hd-duty-late-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+
+            <div style="font-size:12px;color:#666;font-weight:bold;margin-bottom:4px;">⚫ 担当者</div>
+            <div id="hd-duty-main-wrap" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
           </div>
         </div>
             </div>
@@ -4694,6 +4703,7 @@ function _buildHdEntry() {
     snackMenu:      document.getElementById('hd-snack').value,
     earlyDutyStaff: [...document.querySelectorAll('.hd-duty-check-early:checked')].map(cb=>cb.value).join(','),
     lateDutyStaff:  [...document.querySelectorAll('.hd-duty-check-late:checked')].map(cb=>cb.value).join(','),
+    mainDutyStaff:  [...document.querySelectorAll('.hd-duty-check-main:checked')].map(cb=>cb.value).join(','),
     sharedInfo:     document.getElementById('hd-shared').value,
     fromSchool:     document.getElementById('hd-from-school').value,
     fromParents:    document.getElementById('hd-from-parents').value,
@@ -4782,7 +4792,7 @@ function loadDraftToForm(id) {
     });
 
     // 担当者チェックボックスは hdRenderDutySelect に選択値を渡して再描画する
-    hdRenderDutySelect(e.earlyDutyStaff || '', e.lateDutyStaff || '');
+    hdRenderDutySelect(e.earlyDutyStaff || '', e.lateDutyStaff || '', e.mainDutyStaff || '');
 
     ['hd-shared','hd-from-school','hd-from-parents','hd-lost','hd-children-notes'].forEach(id => {
       const field = id.replace('hd-','');
@@ -5102,14 +5112,17 @@ function hdToggleReadSection(titleEl) {
   if(body) body.classList.toggle('open');
 }
 
-function hdRenderDutySelect(earlySelected, lateSelected) {
+function hdRenderDutySelect(earlySelected, lateSelected, mainSelected) {
   const earlyWrap = document.getElementById('hd-duty-early-wrap');
   const lateWrap  = document.getElementById('hd-duty-late-wrap');
+  const mainWrap  = document.getElementById('hd-duty-main-wrap');
   if (!earlyWrap || !lateWrap) return;
   const earlySet = new Set((earlySelected||'').split(',').map(s=>s.trim()).filter(Boolean));
   const lateSet  = new Set((lateSelected||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const mainSet  = new Set((mainSelected||'').split(',').map(s=>s.trim()).filter(Boolean));
   const makeChips = (containerId, shiftType, selectedSet) => {
     const el = document.getElementById(containerId);
+    if (!el) return;
     el.innerHTML = users.map(u => {
       const isSelected = selectedSet.has(u.name);
       const cls = isSelected ? `hd-duty-chip selected-${shiftType}` : 'hd-duty-chip';
@@ -5121,6 +5134,7 @@ function hdRenderDutySelect(earlySelected, lateSelected) {
   };
   makeChips('hd-duty-early-wrap', 'early', earlySet);
   makeChips('hd-duty-late-wrap',  'late',  lateSet);
+  makeChips('hd-duty-main-wrap',  'main',  mainSet);
 }
 
 function hdToggleDutyChip(cb, shiftType) {
