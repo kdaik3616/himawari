@@ -4863,7 +4863,7 @@ function renderHomeDiaryList() {
           ${e.lateStaff?`<span style="font-size:12px;color:#36a;">遅番:${esc(e.lateStaff)}</span>`:''}
         </div>
         <div class="entry-actions">
-          ${e.isDraft ? `<button class="btn-secondary btn-sm" onclick="loadDraftToForm(${e.id})">✏️ 編集</button>` : ''}
+          <button class="btn-secondary btn-sm" onclick="loadDraftToForm(${e.id})">✏️ 編集</button>
           <button class="btn-secondary btn-sm print-btn-pc" onclick="printHomeDiary(${e.id})">🖨</button>
           <button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFHomeDiary(${e.id})">📄</button>
           ${isAdmin(currentUser)?`<button class="btn-danger btn-sm" onclick="deleteHomeDiary(${e.id})">削除</button>`:''}
