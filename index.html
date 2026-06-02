@@ -4887,29 +4887,24 @@ function _buildHdpHTML(id){
   if(!e) return null;
   const d=new Date(e.date);
   const reiwa=d.getFullYear()-2018;
-  const act1400 = e.activities['14:00']||{};
-  const act1500 = e.activities['15:00']||{};
+  const act1430 = e.activities['14:30']||{};
   const splitRows = `<tr>
-      <td class="hdp-time">14:00</td>
-      <td class="hdp-cell">${(act1400.junior||'').replace(/\n/g,'<br>')}</td>
-      <td class="hdp-cell">${(act1400.middle||'').replace(/\n/g,'<br>')}</td>
-      <td class="hdp-cell">${(act1400.senior||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-time">14:30</td>
+      <td class="hdp-cell">${(act1430.junior||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(act1430.middle||'').replace(/\n/g,'<br>')}</td>
+      <td class="hdp-cell">${(act1430.senior||'').replace(/\n/g,'<br>')}</td>
     </tr>
     <tr>
       <td class="hdp-time">15:00</td>
-      <td colspan="3" style="padding:0;border:1px solid #ccc;">
-        <div style="border-bottom:1px dashed #ccc;padding:2px 4px;background:#fffbe6;font-size:7pt;color:#b8860b;">おやつの時間　${esc(e.snackMenu||'')}</div>
-        <div style="display:flex;">
-          <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.junior||'').replace(/\n/g,'<br>')}</div>
-          <div style="flex:1;border-right:1px solid #eee;padding:2px;font-size:8pt;">${(act1500.middle||'').replace(/\n/g,'<br>')}</div>
-          <div style="flex:1;padding:2px;font-size:8pt;">${(act1500.senior||'').replace(/\n/g,'<br>')}</div>
-        </div>
+      <td colspan="3" style="padding:4px 6px;background:#fffbe6;">
+        おやつ　${esc(e.snackMenu||'')}
       </td>
     </tr>`;
   const mergedRows = HD_TIMES_MERGED.map(t=>{
     const a=e.activities[t]||{};
+    const label = t==='15:30' ? '15:30〜' : t;
     return `<tr style="background:#f0f4ff;">
-      <td class="hdp-time">${t}</td>
+      <td class="hdp-time">${label}</td>
       <td colspan="3" class="hdp-cell">${(a.all||'').replace(/\n/g,'<br>')}</td>
     </tr>`;
   }).join('');
@@ -4918,6 +4913,8 @@ function _buildHdpHTML(id){
     .map(n=>`<span class="hdp-duty-name" style="border-color:#e53;color:#c00;">${esc(n.trim())}</span>`).join('');
   const lateDutyHTML=(e.lateDutyStaff||'').split(',').filter(Boolean)
     .map(n=>`<span class="hdp-duty-name" style="border-color:#36a;color:#005bb5;">${esc(n.trim())}</span>`).join('');
+  const mainDutyHTML=(e.mainDutyStaff||'').split(',').filter(Boolean)
+    .map(n=>`<span class="hdp-duty-name" style="border-color:#888;color:#444;">${esc(n.trim())}</span>`).join('');
   return {date:e.date,html:`<div class="hdp-page">
       <div class="hdp-header">
         <span>令和${reiwa}年度</span>
@@ -4949,6 +4946,8 @@ function _buildHdpHTML(id){
               <div class="hdp-duty">${earlyDutyHTML}</div>
               <div style="font-size:7pt;color:#00c;margin-top:1mm;margin-bottom:1mm;">遅番</div>
               <div class="hdp-duty">${lateDutyHTML}</div>
+              <div style="font-size:7pt;color:#444;margin-top:1mm;margin-bottom:1mm;">担当者</div>
+              <div class="hdp-duty">${mainDutyHTML}</div>
             </div>
           </div>
           <div class="hdp-rs"><div class="hdp-rl">共有事項</div><div class="hdp-rv">${(e.sharedInfo||'').replace(/\n/g,'<br>')}</div></div>
