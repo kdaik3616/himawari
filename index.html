@@ -4896,14 +4896,14 @@ function _buildHdpHTML(id){
     </tr>
     <tr>
       <td class="hdp-time">15:00</td>
-      <td colspan="3" style="padding:4px 6px;background:#fffbe6;">
+      <td colspan="3" style="padding:4px 6px;background:#fffbe6;border:1px solid #ccc;">
         おやつ　${esc(e.snackMenu||'')}
       </td>
     </tr>`;
   const mergedRows = HD_TIMES_MERGED.map(t=>{
     const a=e.activities[t]||{};
     const label = t==='15:30' ? '15:30〜' : t;
-    return `<tr style="background:#f0f4ff;">
+    return `<tr style="background:#fff;">
       <td class="hdp-time">${label}</td>
       <td colspan="3" class="hdp-cell">${(a.all||'').replace(/\n/g,'<br>')}</td>
     </tr>`;
