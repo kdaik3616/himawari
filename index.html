@@ -2046,7 +2046,7 @@ async function fetchEntries(){
 async function fetchNotices(){
   try{
     const cached=JSON.parse(localStorage.getItem('cache_h_notices')||'null');
-    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<1800000) return cached.data;
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<60000) return cached.data;
   }catch(e){}
   const data=await fsGetAll(COLL_NOTICES);
   if(data.length){
@@ -3923,6 +3923,9 @@ function renderEntriesWeekly(filtered){
 // ==================================================
 async function pollData(){
   try{
+    localStorage.removeItem('cache_h_entries');
+    localStorage.removeItem('cache_h_notices');
+    localStorage.removeItem('cache_homediary');
     const [nu,ne,nn,nh,orderDoc]=await Promise.all([
       fetchUsers(),
       fetchEntries(),
