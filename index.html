@@ -4269,6 +4269,7 @@ async function markNoticeRead(nid){
     ];
 
     // Firestoreに書き込み
+    localStorage.removeItem('cache_h_notices');
     await fsUpdateField(COLL_NOTICES, String(nid), 'readBy', newReadBy);
 
     // ローカルも更新
@@ -4292,6 +4293,7 @@ async function deleteNotice(nid){
   saveLocal();
   updateNoticeBadge();
   renderNotices();
+  localStorage.removeItem('cache_h_notices');
   try{
     await fsDelete(COLL_NOTICES,String(nid));
   }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
@@ -4883,6 +4885,7 @@ function deleteHomeDiary(id) {
   homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==id);
   saveLocal();
   renderHomeDiaryList();
+  localStorage.removeItem('cache_homediary');
   // Firebaseからも削除
   if(typeof fsDelete==='function'){
     fsDelete(COLL_HOMEDIARY, String(id)).catch(e=>console.warn('Firebase delete error:',e));
