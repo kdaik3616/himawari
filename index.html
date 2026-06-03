@@ -589,7 +589,9 @@ select{
 @media print{
   /* 横向きA4固定 – 向きに関係なく常に同じレイアウトで印刷 */
   @page{size:A4 landscape;margin:6mm 8mm 6mm 8mm;}
-  html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#ffffff!important;background-color:#ffffff!important;}
+  #print-area{background:#ffffff!important;background-color:#ffffff!important;}
+  body.print-active{background:#ffffff!important;background-color:#ffffff!important;}
   /* 専用印刷モード(doPrint): print-areaのみ表示（#print-areaの非表示ルールより後で上書きするため順序に注意） */
   body.print-active>*:not(#print-area){display:none!important;}
   /* 通常ブラウザ印刷: 記録内容以外のUI要素を非表示 */
@@ -615,7 +617,7 @@ select{
   .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
   body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;}
-  body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:118%!important;}
+  body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:0.5mm 1mm;border-bottom:1pt solid #000;font-size:7pt;font-weight:bold;}
   .print-weekly{padding:0.5mm 1mm;border-bottom:1pt solid #000;}
   .print-weekly-label{font-size:7pt;color:#444;}
