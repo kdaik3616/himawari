@@ -1729,6 +1729,12 @@ select{
             <div class="field-group"><label class="field-label">月</label>
               <input type="month" id="filter-month" autocomplete="off">
             </div>
+            <div class="field-group"><label class="field-label">期間（開始）</label>
+              <input type="date" id="filter-date-from" autocomplete="off">
+            </div>
+            <div class="field-group"><label class="field-label">期間（終了）</label>
+              <input type="date" id="filter-date-to" autocomplete="off">
+            </div>
             <div class="field-group"><label class="field-label">確認状況</label>
               <select id="filter-confirm" autocomplete="off" onchange="applyFilters()">
                 <option value="">全て</option>
@@ -2956,6 +2962,12 @@ function getFiltered(){
   const fm=document.getElementById('filter-month')?.value;
   if(fm) list=list.filter(e=>e.date && e.date.startsWith(fm));
 
+  // 期間フィルタ: 開始日・終了日が指定されている時のみ適用
+  const fdFrom=document.getElementById('filter-date-from')?.value;
+  const fdTo=document.getElementById('filter-date-to')?.value;
+  if(fdFrom) list=list.filter(e=>e.date && e.date>=fdFrom);
+  if(fdTo)   list=list.filter(e=>e.date && e.date<=fdTo);
+
   // 確認状況フィルタ: confirmed=確認済みのみ / unconfirmed=未確認のみ / 空=全て
   const fc=document.getElementById('filter-confirm')?.value;
   if(fc==='confirmed'){
@@ -2988,7 +3000,7 @@ function applyFilters(){
   renderEntries();
 }
 function clearFilters(){
-  ['filter-month','filter-year','filter-staff-search','filter-confirm'].forEach(id=>{
+  ['filter-month','filter-year','filter-staff-search','filter-confirm','filter-date-from','filter-date-to'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
   cvFilter={year:null,staff:null};
