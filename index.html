@@ -2897,14 +2897,10 @@ async function saveEntry(){
   };
   // 同じ日の既存エントリがある場合、空欄フィールドは既存値で補完（空白上書き防止）
   if(existing){
-    const mergeFields=[
-      'weekday','weather','weeklyGoal','dailyGoal',
-      'activity','support','mainActivity',
-      'absence','guardian','reflection','episode'
-    ];
-    mergeFields.forEach(key=>{
-      if(!entry[key]&&existing[key]) entry[key]=existing[key];
-    });
+    ['weekday','weather','weeklyGoal','dailyGoal',
+     'activity','support','mainActivity',
+     'absence','guardian','reflection','episode'
+    ].forEach(key=>{if(!entry[key]&&existing[key])entry[key]=existing[key];});
   }
   // ローカルに即時保存
   entries=entries.filter(e=>e.id!==entry.id);
@@ -3170,15 +3166,6 @@ const adminActions = `
   </div>`;
 }
 
-// コメント入力中かどうかを確認（ポーリング時の再描画抑制用）
-function isCommentInputActive(){
-  const inputs=document.querySelectorAll('textarea[id^="cmt-input-"]');
-  for(const inp of inputs){
-    if(inp.value.trim()!==''||inp===document.activeElement) return true;
-  }
-  return false;
-}
-
 // ==================================================
 // CONFIRMATION
 // ==================================================
@@ -3231,6 +3218,36 @@ async function confirmEntry(eid){
 // ==================================================
 // COMMENTS
 // ==================================================
+// コメント入力中かどうかを確認（ポーリング時の再描画抑制用）
+function isCommentInputActive(){
+  const inputs=document.querySelectorAll('textarea[id^="cmt-input-"]');
+  for(const inp of inputs){
+    if(inp===document.activeElement||inp.value.trim()!=='') return true;
+  }
+  return false;
+}
+
+// コメントリストのみ差分更新（入力欄・フォーカスを破壊しない）
+function refreshCommentLists(updatedEntries){
+  updatedEntries.forEach(e=>{
+    const listEl=document.getElementById('cmts-'+e.id);
+    if(!listEl) return;
+    const cmts=e.comments||[];
+    const cmtHTML=cmts.map(c=>{
+      const isOwn=c.userId===currentUser.id;
+      const isAdm=c.role==='principal'||c.role==='vice_principal';
+      return `<div class="comment-item">
+        <div class="comment-avatar ${isAdm?'admin':''}">${c.userName.charAt(0)}</div>
+        <div class="comment-bubble ${isOwn?'own':''}">
+          <div class="comment-meta"><strong>${c.userName}</strong> <span class="role-badge role-${c.role}" style="font-size:10px;">${ROLE_LABEL[c.role]}</span>  ${fmtDt(c.createdAt)}</div>
+          <div class="comment-text">${esc(c.text)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    listEl.innerHTML=cmtHTML||'<div style="font-size:12px;color:var(--border);font-style:italic;">コメントはまだありません</div>';
+  });
+}
+
 function buildCommentsSection(e){
   const cmts=e.comments||[];
   const cmtHTML=cmts.map(c=>{
@@ -4012,10 +4029,18 @@ async function pollData(){
     if(ne.length>0){
       ne.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(ne)!==JSON.stringify(entries)){
+        const prev=entries;
         entries=ne;
         saveLocal();
         renderYearTree();
-        if(currentView==='entries' && !isCommentInputActive()) renderEntries();
+        if(currentView==='entries'){
+          if(isCommentInputActive()){
+            // 入力中はカード全体を再描画せずコメント欄のみ更新
+            refreshCommentLists(ne);
+          } else {
+            renderEntries();
+          }
+        }
         populatePcFilters();
       }
     }
