@@ -3175,7 +3175,9 @@ const adminActions = `
 // ==================================================
 function buildConfirmBtn(e){
   const myConf=e.confirmations&&e.confirmations.find(c=>c.userId===currentUser.id);
-  if(myConf) return `<button class="btn-confirmed">✓ ${ROLE_LABEL[currentUser.role]}確認済み</button>`;
+  if(myConf){
+    return `<button class="btn-confirmed" onclick="confirmEntry(${e.id})" title="タップで確認を取り消す">✓ ${ROLE_LABEL[currentUser.role]}確認済み</button>`;
+  }
   return `<button class="btn-confirm" onclick="confirmEntry(${e.id})">✔ 確認する</button>`;
 }
 
@@ -3198,11 +3200,21 @@ function buildConfirmSection(e){
 async function confirmEntry(eid){
   const e=entries.find(x=>x.id===eid);
   if(!e||!isAdmin(currentUser))return;
-  if((e.confirmations||[]).find(c=>c.userId===currentUser.id)){showToast('既に確認済みです');return;}
+  const already=(e.confirmations||[]).find(c=>c.userId===currentUser.id);
+  if(already){
+    // 自分の確認を取り消す
+    if(!confirm('自分の確認を取り消しますか？'))return;
+    const newConf=(e.confirmations||[]).filter(c=>c.userId!==currentUser.id);
+    try{
+      await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
+      showToast('↩️ 確認を取り消しました');
+    }catch(err){showToast('⚠️ エラー: '+err.message);}
+    return;
+  }
+  // 確認追加
   const newConf=[...(e.confirmations||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()}];
   try{
     await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
-    if(e2) return; // unused var fix
     showToast('✅ 確認しました');
   }catch(err){showToast('⚠️ エラー: '+err.message);}
 }
