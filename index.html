@@ -2895,6 +2895,17 @@ async function saveEntry(){
     comments:existing?.comments||[],
     savedAt:new Date().toISOString()
   };
+  // 同じ日の既存エントリがある場合、空欄フィールドは既存値で補完（空白上書き防止）
+  if(existing){
+    const mergeFields=[
+      'weekday','weather','weeklyGoal','dailyGoal',
+      'activity','support','mainActivity',
+      'absence','guardian','reflection','episode'
+    ];
+    mergeFields.forEach(key=>{
+      if(!entry[key]&&existing[key]) entry[key]=existing[key];
+    });
+  }
   // ローカルに即時保存
   entries=entries.filter(e=>e.id!==entry.id);
   entries.push(entry);
