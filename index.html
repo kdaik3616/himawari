@@ -3170,6 +3170,15 @@ const adminActions = `
   </div>`;
 }
 
+// コメント入力中かどうかを確認（ポーリング時の再描画抑制用）
+function isCommentInputActive(){
+  const inputs=document.querySelectorAll('textarea[id^="cmt-input-"]');
+  for(const inp of inputs){
+    if(inp.value.trim()!==''||inp===document.activeElement) return true;
+  }
+  return false;
+}
+
 // ==================================================
 // CONFIRMATION
 // ==================================================
@@ -4006,7 +4015,7 @@ async function pollData(){
         entries=ne;
         saveLocal();
         renderYearTree();
-        if(currentView==='entries') renderEntries();
+        if(currentView==='entries' && !isCommentInputActive()) renderEntries();
         populatePcFilters();
       }
     }
