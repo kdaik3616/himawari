@@ -5129,8 +5129,8 @@ function _savePDF(innerHTML,filename){
   html2pdf().set({
     margin:8,
     filename:filename,
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,logging:false},
+    image:{type:'jpeg',quality:0.82},
+    html2canvas:{scale:1.5,useCORS:true,logging:false},
     jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
   }).from(content).save()
     .then(()=>{document.body.removeChild(wrap);showToast('✅ PDF保存完了');})
