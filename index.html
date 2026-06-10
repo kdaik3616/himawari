@@ -2222,6 +2222,15 @@ function tryAutoLogin(){
       document.body.classList.add('ready');
       return;
     }
+    // 最後の操作から30分以上経過していたら自動ログインしない
+    const storedLastActive = Number(localStorage.getItem('ls_lastActiveAt') || '0');
+    if(storedLastActive > 0 && Date.now() - storedLastActive > AUTO_LOGOUT_MS){
+      localStorage.removeItem('ls_session');
+      localStorage.removeItem('ls_lastActiveAt');
+      document.documentElement.classList.remove('pre-auth');
+      document.body.classList.add('ready');
+      return;
+    }
     const existingUser = users.find(u => u.id === session.userId);
     if(existingUser){
       currentUser = existingUser;
@@ -2431,6 +2440,7 @@ let lastActiveAt = 0;
 function resetAutoLogoutTimer() {
   if (!document.body.classList.contains('logged-in')) return;
   lastActiveAt = Date.now();
+  try{ localStorage.setItem('ls_lastActiveAt', String(lastActiveAt)); }catch(e){}
   clearTimeout(autoLogoutTimer);
   autoLogoutTimer = setTimeout(triggerAutoLogout, AUTO_LOGOUT_MS);
 }
@@ -2479,6 +2489,7 @@ function logout(){
   currentUser=null;pinBuffer='';loginSelectedUser=null;
   localStorage.removeItem('ls_currentUser');
   localStorage.removeItem('ls_session');
+  localStorage.removeItem('ls_lastActiveAt');
   try{localStorage.removeItem('ls_adminFlag');}catch(e){}
   document.querySelector('.login-box')?.classList.remove('pin-mode');
   document.body.classList.remove('logged-in');
