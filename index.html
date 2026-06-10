@@ -1925,6 +1925,7 @@ const COLL_NOTICES = 'h_notices';
 const COLL_HOMEDIARY = 'homediary';
 const COLL_CONFIG  = 'h_config';
 let pollInterval = null;
+let localSyncMeta = {entries:0, notices:0, homediary:0, users:0, loginOrder:0};
 
 // Firestore型変換
 function toFSVal(v){
@@ -2283,6 +2284,14 @@ function getLoginOrder(){ return loginOrder; }
 function saveLoginOrder(order){
   loginOrder=order;
   fsSet(COLL_CONFIG,'loginOrder',{order}).catch(e=>console.warn('saveLoginOrder error:',e));
+  touchSync('loginOrder');
+}
+
+// 書き込み時に _sync メタドキュメントの該当フィールドを更新
+function touchSync(field){
+  const ts = Date.now();
+  localSyncMeta[field] = ts;
+  fsUpdateField(COLL_CONFIG,'_sync',field,ts).catch(()=>{});
 }
 function getOrderedUsers(){
   const order=getLoginOrder();
@@ -2913,6 +2922,7 @@ async function saveEntry(){
   clearInputForm();
   // Firebaseにも非同期で同期
   fsSet(COLL_ENTRIES,docId,entry).catch(e=>console.warn('Firebase save error:',e));
+  touchSync('entries');
 }
 function clearInputForm(){
   ['input-weekly-goal','input-daily-goal','input-activity','input-support',
@@ -3202,6 +3212,7 @@ async function confirmEntry(eid){
     const newConf=(e.confirmations||[]).filter(c=>c.userId!==currentUser.id);
     try{
       await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
+      touchSync('entries');
       showToast('↩️ 確認を取り消しました');
     }catch(err){showToast('⚠️ エラー: '+err.message);}
     return;
@@ -3210,6 +3221,7 @@ async function confirmEntry(eid){
   const newConf=[...(e.confirmations||[]),{userId:currentUser.id,userName:currentUser.name,role:currentUser.role,confirmedAt:new Date().toISOString()}];
   try{
     await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
+    touchSync('entries');
     showToast('✅ 確認しました');
   }catch(err){showToast('⚠️ エラー: '+err.message);}
 }
@@ -3282,6 +3294,7 @@ async function addComment(eid){
   inp.value='';
   try{
     await fsUpdateField(COLL_ENTRIES,String(eid),'comments',newComments);
+    touchSync('entries');
     showToast('💬 コメントを送信しました');
   }catch(e2){showToast('⚠️ エラー: '+e2.message);}
 }
@@ -3299,6 +3312,7 @@ async function deleteEntry(id){
   renderEntries();
   showToast('削除しました');
   fsDelete(COLL_ENTRIES,String(id)).catch(e=>console.warn('Firebase delete error:',e));
+  touchSync('entries');
 }
 
 // ==================================================
@@ -3396,6 +3410,7 @@ async function toggleHomeroom(uid){
   renderLoginUsers();
   try{
     await fsUpdateField(COLL_USERS,uid,'homeroom',newVal);
+    touchSync('users');
     showToast(newVal?'✅ '+u.name+' を担任に設定しました':'✅ '+u.name+' の担任を解除しました');
   }catch(e){
     u.homeroom=!newVal;
@@ -3428,7 +3443,7 @@ async function saveUserName(uid){
   if(!newName){inp.value=u.name; return;}
   if(newName===u.name) return;
   const old=u.name; u.name=newName; saveLocal(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'name',newName); showToast('✅ 名前を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'name',newName); touchSync('users'); showToast('✅ 名前を変更しました');}
   catch(e){u.name=old; saveLocal(); if(inp)inp.value=old; showToast('⚠️ '+e.message);}
 }
 
@@ -3439,7 +3454,7 @@ async function saveUserGrade(uid){
   const u=users.find(x=>x.id===uid);
   if(!u||getUserGrade(u)===newGrade) return;
   u.grade=newGrade; saveLocal(); renderUsersTable(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'grade',newGrade); showToast('✅ 学年を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'grade',newGrade); touchSync('users'); showToast('✅ 学年を変更しました');}
   catch(e){showToast('⚠️ '+e.message);}
 }
 
@@ -3450,7 +3465,7 @@ async function changeRoleInline(uid){
   const u=users.find(x=>x.id===uid);
   if(!u||newRole===u.role) return;
   u.role=newRole; saveLocal(); renderUsersTable(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'role',newRole); showToast('✅ '+u.name+' の役職を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'role',newRole); touchSync('users'); showToast('✅ '+u.name+' の役職を変更しました');}
   catch(e){showToast('⚠️ '+e.message);}
 }
 
@@ -3594,6 +3609,7 @@ async function changeRole(uid){
   if(!confirm(`「${u.name}」の役職を「${ROLE_LABEL[u.role]}」→「${ROLE_LABEL[newRole]}」に変更しますか？`))return;
   try{
     await fsUpdateField(COLL_USERS,uid,'role',newRole);
+    touchSync('users');
     showToast('✅ '+u.name+' の役職を「'+ROLE_LABEL[newRole]+'」に変更しました');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
@@ -3610,6 +3626,7 @@ async function addUser(){
   const u={id:'u'+Date.now(),name,role,pin,grade};
   try{
     await fsSet(COLL_USERS,u.id,u);
+    touchSync('users');
     document.getElementById('new-user-name').value='';
     document.getElementById('new-user-pin').value='';
     showToast(name+' を追加しました');
@@ -3622,6 +3639,7 @@ async function deleteUser(uid){
   if(!confirm('「'+u.name+'」を削除しますか？（記録データは保持されます）'))return;
   try{
     await fsDelete(COLL_USERS,uid);
+    touchSync('users');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
@@ -3997,16 +4015,47 @@ function renderEntriesWeekly(filtered){
 // ==================================================
 async function pollData(){
   try{
-    localStorage.removeItem('cache_h_entries');
-    localStorage.removeItem('cache_h_notices');
-    localStorage.removeItem('cache_homediary');
-    const [nu,ne,nn,nh,orderDoc]=await Promise.all([
-      fetchUsers(),
-      fetchEntries(),
-      fetchNotices(),
-      fetchHomeDiary(),
-      fsGet(COLL_CONFIG,'loginOrder')
+    // ① _sync ドキュメントのみ取得（1 read）
+    const syncDoc = await fsGet(COLL_CONFIG,'_sync');
+
+    let needEntries, needNotices, needHomediary, needUsers, needOrder;
+    if(!syncDoc){
+      // _sync が未存在（初回デプロイ直後）→ 全コレクションを取得
+      needEntries = needNotices = needHomediary = needUsers = needOrder = true;
+    } else {
+      needEntries   = (syncDoc.entries   ||0) > (localSyncMeta.entries   ||0);
+      needNotices   = (syncDoc.notices   ||0) > (localSyncMeta.notices   ||0);
+      needHomediary = (syncDoc.homediary ||0) > (localSyncMeta.homediary ||0);
+      needUsers     = (syncDoc.users     ||0) > (localSyncMeta.users     ||0);
+      needOrder     = (syncDoc.loginOrder||0) > (localSyncMeta.loginOrder||0);
+    }
+
+    // ② 変更なしなら何もしない（通常の状態 → Firestore追加読み取りゼロ）
+    if(!needEntries && !needNotices && !needHomediary && !needUsers && !needOrder) return;
+
+    // ③ 変更のあるコレクションのキャッシュだけ削除して取得
+    if(needEntries)   localStorage.removeItem('cache_h_entries');
+    if(needNotices)   localStorage.removeItem('cache_h_notices');
+    if(needHomediary) localStorage.removeItem('cache_homediary');
+
+    const [nu,ne,nn,nh,orderDoc] = await Promise.all([
+      needUsers     ? fetchUsers()     : Promise.resolve(null),
+      needEntries   ? fetchEntries()   : Promise.resolve(null),
+      needNotices   ? fetchNotices()   : Promise.resolve(null),
+      needHomediary ? fetchHomeDiary() : Promise.resolve(null),
+      needOrder     ? fsGet(COLL_CONFIG,'loginOrder') : Promise.resolve(null),
     ]);
+
+    // ④ localSyncMeta を更新
+    if(syncDoc){
+      if(needEntries)   localSyncMeta.entries   = syncDoc.entries;
+      if(needNotices)   localSyncMeta.notices   = syncDoc.notices;
+      if(needHomediary) localSyncMeta.homediary = syncDoc.homediary;
+      if(needUsers)     localSyncMeta.users     = syncDoc.users;
+      if(needOrder)     localSyncMeta.loginOrder= syncDoc.loginOrder;
+    }
+
+    // ⑤ 以下は既存の同期ロジック（null チェック追加）
     // 並び順を同期（他端末で変更された場合に反映）
     if(orderDoc&&Array.isArray(orderDoc.order)){
       if(JSON.stringify(orderDoc.order)!==JSON.stringify(loginOrder)){
@@ -4016,7 +4065,7 @@ async function pollData(){
       }
     }
     // Firebaseが空でもローカルデータを消さない（接続エラー対策）
-    if(nu.length>0){
+    if(nu&&nu.length>0){
       if(JSON.stringify(nu.map(u=>u.id).sort())!==JSON.stringify(users.map(u=>u.id).sort())||
          JSON.stringify(nu)!==JSON.stringify(users)){
         users=nu;
@@ -4025,7 +4074,7 @@ async function pollData(){
         if(currentView==='users') renderUsersTable();
       }
     }
-    if(ne.length>0){
+    if(ne&&ne.length>0){
       ne.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(ne)!==JSON.stringify(entries)){
         const prev=entries;
@@ -4043,16 +4092,14 @@ async function pollData(){
         populatePcFilters();
       }
     }
-    if(nn.length>0||notices.length===0){
+    if(nn!==null&&(nn.length>0||notices.length===0)){
       const nn_clean=nn.filter(n=>n.title&&n.authorName&&n.createdAt);
       nn_clean.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 
       // ローカルのreadByをFirestoreのデータにマージ（競合防止）
-      // ローカルにある既読情報はFirestoreより新しい可能性があるため保持する
       const merged = nn_clean.map(remote => {
         const local = notices.find(l => l.id === remote.id);
         if (!local) return remote;
-        // ローカルとリモートのreadByを合体（重複除去）
         const remoteIds = new Set((remote.readBy || []).map(r => r.userId));
         const localOnly = (local.readBy || []).filter(r => !remoteIds.has(r.userId));
         return { ...remote, readBy: [...(remote.readBy || []), ...localOnly] };
@@ -4072,7 +4119,7 @@ async function pollData(){
       }
     }
     // ホーム日誌の同期
-    if(nh.length>0){
+    if(nh&&nh.length>0){
       nh.sort((a,b)=>b.date.localeCompare(a.date));
       if(JSON.stringify(nh)!==JSON.stringify(homeDiaryEntries)){
         homeDiaryEntries=nh;
@@ -4102,7 +4149,8 @@ function startListeners(){
     }
     if(currentView==='notices') renderNotices();
   });
-  pollInterval=setInterval(pollData,8000);
+  // 30秒ごとにポーリング（タブ非表示時はスキップ）
+  pollInterval=setInterval(()=>{ if(!document.hidden && currentUser) pollData(); },30000);
 }
 function stopListeners(){
   if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
@@ -4313,6 +4361,7 @@ async function postNotice(){
 
   try {
     await fsSet(COLL_NOTICES, String(n.id), n);
+    touchSync('notices');
     document.getElementById('notice-title').value = '';
     document.getElementById('notice-body').value  = '';
     _noticeFiles = [];
@@ -4356,6 +4405,7 @@ async function markNoticeRead(nid){
     // Firestoreに書き込み
     localStorage.removeItem('cache_h_notices');
     await fsUpdateField(COLL_NOTICES, String(nid), 'readBy', newReadBy);
+    touchSync('notices');
 
     // ローカルも更新
     n.readBy = newReadBy;
@@ -4381,6 +4431,7 @@ async function deleteNotice(nid){
   localStorage.removeItem('cache_h_notices');
   try{
     await fsDelete(COLL_NOTICES,String(nid));
+    touchSync('notices');
   }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
 }
 
@@ -4919,7 +4970,7 @@ function saveDraftHomeDiary() {
   localStorage.removeItem('cache_homediary');
 
   fsSet(COLL_HOMEDIARY, String(entry.id), entry)
-    .then(() => showToast('📝 下書きを保存しました（全員に共有されました）'))
+    .then(() => { touchSync('homediary'); showToast('📝 下書きを保存しました（全員に共有されました）'); })
     .catch(() => showToast('⚠️ 下書きの共有に失敗しました。もう一度保存してください。'));
 }
 
@@ -4933,6 +4984,7 @@ function saveHomeDiaryEntry() {
   homeDiaryEntries.sort((a,b)=>b.date.localeCompare(a.date));
   saveLocal();
   fsSet(COLL_HOMEDIARY, String(entry.id), entry)
+    .then(()=>touchSync('homediary'))
     .catch(e=>console.warn('Firebase save error:',e));
   // フォームをまっさらにリセット
   _resetHdForm();
@@ -4989,7 +5041,9 @@ function deleteHomeDiary(id) {
   localStorage.removeItem('cache_homediary');
   // Firebaseからも削除
   if(typeof fsDelete==='function'){
-    fsDelete(COLL_HOMEDIARY, String(id)).catch(e=>console.warn('Firebase delete error:',e));
+    fsDelete(COLL_HOMEDIARY, String(id))
+      .then(()=>touchSync('homediary'))
+      .catch(e=>console.warn('Firebase delete error:',e));
   }
 }
 
