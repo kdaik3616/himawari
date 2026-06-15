@@ -616,7 +616,7 @@ select{
   .print-page:last-child{page-break-after:avoid;break-after:avoid;}
   .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
-  body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;}
+  body.print-active .print-page{overflow:visible!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;width:122%!important;}
   body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:0.5mm 1mm;border-bottom:1pt solid #000;font-size:7pt;font-weight:bold;}
   .print-weekly{padding:0.5mm 1mm;border-bottom:1pt solid #000;}
@@ -3750,7 +3750,23 @@ function doPrint(list){
   document.body.classList.add('print-active');
   document.body.style.overflow='hidden';
   _isPrinting=true;
-  setTimeout(()=>window.print(),200);
+  // 動的スケール計算: ページ内容の実高さを測定し、A4横(175mm≈660px@96dpi)に収まるよう縮小
+  setTimeout(()=>{
+    const TARGET_H = 660; // A4横の印刷可能高さ(px換算目安)
+    document.querySelectorAll('#print-area .print-page').forEach(page=>{
+      page.style.transform='scale(1)';
+      const h = page.scrollHeight;
+      if(h > TARGET_H){
+        const scale = Math.max(0.55, TARGET_H / h);
+        page.style.transform=`scale(${scale.toFixed(3)})`;
+        page.style.width=`${(100/scale).toFixed(1)}%`;
+      } else {
+        page.style.transform='scale(0.82)';
+        page.style.width='122%';
+      }
+    });
+    window.print();
+  }, 300);
 }
 function printSingle(id){const e=entries.find(x=>x.id===id);if(!e||!canViewEntry(currentUser,e)){showToast('⚠️ 閲覧権限がありません');return;}doPrint([e]);}
 function printSelected(){
@@ -5174,7 +5190,7 @@ function _getPrintCSS(){
     }
   }catch(_){}
   /* print-active クラスなしでも高さ制限が効くよう上書き */
-  css+='.print-page{height:190mm;overflow:hidden;}.hdp-page{height:190mm;overflow:hidden;}';
+  css+='.print-page{overflow:visible;}.hdp-page{height:190mm;overflow:hidden;}';
   return css;
 }
 function _savePDF(innerHTML,filename){
@@ -5190,15 +5206,29 @@ function _savePDF(innerHTML,filename){
   wrap.appendChild(style);
   wrap.appendChild(content);
   document.body.appendChild(wrap);
-  html2pdf().set({
-    margin:8,
-    filename:filename,
-    image:{type:'jpeg',quality:0.82},
-    html2canvas:{scale:1.5,useCORS:true,logging:false},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-  }).from(content).save()
-    .then(()=>{document.body.removeChild(wrap);showToast('✅ PDF保存完了');})
-    .catch(()=>{document.body.removeChild(wrap);showToast('⚠️ PDF生成に失敗しました');});
+  // 動的スケール計算: ページ内容高さに応じてPDFスケールを調整
+  requestAnimationFrame(()=>{
+    const TARGET_H = 720; // A4横PDF高さ目安(px)
+    content.querySelectorAll('.print-page').forEach(page=>{
+      const h = page.scrollHeight;
+      if(h > TARGET_H){
+        const scale = Math.max(0.55, TARGET_H / h);
+        page.style.transform=`scale(${scale.toFixed(3)})`;
+        page.style.transformOrigin='top left';
+        page.style.width=`${(100/scale).toFixed(1)}%`;
+        page.style.overflow='visible';
+      }
+    });
+    html2pdf().set({
+      margin:8,
+      filename:filename,
+      image:{type:'jpeg',quality:0.82},
+      html2canvas:{scale:1.5,useCORS:true,logging:false,windowWidth:1050},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    }).from(content).save()
+      .then(()=>{document.body.removeChild(wrap);showToast('✅ PDF保存完了');})
+      .catch(()=>{document.body.removeChild(wrap);showToast('⚠️ PDF生成に失敗しました');});
+  });
 }
 function savePDFSingle(id){
   const e=entries.find(x=>x.id===id);
