@@ -5187,7 +5187,7 @@ function _getPrintCSS(){
     }
   }catch(_){}
   /* print-active クラスなしでも高さ制限が効くよう上書き */
-  css+='.print-page{height:190mm;overflow:hidden;}.hdp-page{height:190mm;overflow:hidden;}';
+  css+='.print-page{height:190mm;overflow:hidden;align-items:stretch;}.print-day{height:100%;overflow:hidden;}.hdp-page{height:190mm;overflow:hidden;}';
   return css;
 }
 function _savePDF(innerHTML,filename){
