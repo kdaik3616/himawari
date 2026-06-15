@@ -616,7 +616,7 @@ select{
   .print-page:last-child{page-break-after:avoid;break-after:avoid;}
   .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
-  body.print-active .print-page{height:190mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.74);width:135%!important;}
+  body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;}
   body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:0.5mm 1mm;border-bottom:1pt solid #000;font-size:7pt;font-weight:bold;}
   .print-weekly{padding:0.5mm 1mm;border-bottom:1pt solid #000;}
@@ -633,7 +633,7 @@ select{
   .print-col-right{flex:1;display:flex;flex-direction:column;}
   .print-col-right-cell{padding:0.5mm 1mm;border-bottom:1pt solid #000;flex:1;}
   .print-col-right-cell:last-child{border-bottom:none;}
-  .print-episode{padding:0.8mm 1.5mm;min-height:0;}
+  .print-episode{padding:0.8mm 1.5mm;min-height:32mm;}/* 写真貼り付けスペース確保 */
   .print-col-label{font-size:7pt;color:#444;margin-bottom:0.5mm;display:block;}
   .print-col-value{font-size:6.5pt;line-height:1.2;white-space:pre-wrap;}
 
@@ -3693,6 +3693,10 @@ function renderDataStats(){
 // ==================================================
 // PRINT
 // ==================================================
+function _isLargeEntry(e){
+  const len=(e.support||'').length+(e.episode||'').length+(e.reflection||'').length;
+  return len>350;
+}
 function buildPrintDay(e){
   const wx=WX[e.weather]||'';
   const d=new Date(e.date),days=['日','月','火','水','木','金','土'];
@@ -3745,7 +3749,16 @@ function buildPrintDay(e){
 
 function doPrint(list){
   const pages=[];
-  for(let i=0;i<list.length;i+=2) pages.push(list.slice(i,i+2));
+  for(let i=0;i<list.length;){
+    const e=list[i];
+    if(_isLargeEntry(e)){
+      pages.push([e]);i++;
+    } else if(i+1<list.length&&!_isLargeEntry(list[i+1])){
+      pages.push([e,list[i+1]]);i+=2;
+    } else {
+      pages.push([e]);i++;
+    }
+  }
   document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
   document.body.classList.add('print-active');
   document.body.style.overflow='hidden';
@@ -5174,7 +5187,7 @@ function _getPrintCSS(){
     }
   }catch(_){}
   /* print-active クラスなしでも高さ制限が効くよう上書き */
-  css+='.print-page{height:190mm;overflow:hidden;transform:scale(0.74);transform-origin:top left;width:135%;}.hdp-page{height:190mm;overflow:hidden;}';
+  css+='.print-page{height:190mm;overflow:hidden;}.hdp-page{height:190mm;overflow:hidden;}';
   return css;
 }
 function _savePDF(innerHTML,filename){
@@ -5209,7 +5222,13 @@ function savePDFSelected(){
   const ids=[...document.querySelectorAll('.echeck:checked')].map(c=>+c.dataset.id);
   if(!ids.length){showToast('PDFにする記録を選択してください');return;}
   const list=entries.filter(e=>ids.includes(e.id)).sort((a,b)=>a.date.localeCompare(b.date));
-  const pages=[];for(let i=0;i<list.length;i+=2)pages.push(list.slice(i,i+2));
+  const pages=[];
+  for(let i=0;i<list.length;){
+    const e=list[i];
+    if(_isLargeEntry(e)){pages.push([e]);i++;}
+    else if(i+1<list.length&&!_isLargeEntry(list[i+1])){pages.push([e,list[i+1]]);i+=2;}
+    else{pages.push([e]);i++;}
+  }
   const html=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
   _savePDF(html,`保育日誌_${list[0].date}.pdf`);
 }
@@ -5218,7 +5237,12 @@ function savePDFFiltered(){
   if(!list.length){ showToast('出力する記録がありません'); return; }
   const sorted = [...list].sort((a,b)=>a.date.localeCompare(b.date));
   const pages = [];
-  for(let i=0; i<sorted.length; i+=2) pages.push(sorted.slice(i,i+2));
+  for(let i=0;i<sorted.length;){
+    const e=sorted[i];
+    if(_isLargeEntry(e)){pages.push([e]);i++;}
+    else if(i+1<sorted.length&&!_isLargeEntry(sorted[i+1])){pages.push([e,sorted[i+1]]);i+=2;}
+    else{pages.push([e]);i++;}
+  }
   const html = pages.map(pair =>
     `<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`
   ).join('');
