@@ -614,7 +614,7 @@ select{
   /* 保育日誌: 横並び2段組 – 向き不問で1ページに収める */
   .print-page{width:100%;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;display:flex;flex-direction:row;gap:3mm;font-family:'Noto Sans JP',sans-serif;font-size:7.5pt;}
   .print-page:last-child{page-break-after:avoid;break-after:avoid;}
-  .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
+  .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;box-sizing:border-box;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
   body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;}
   body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
@@ -627,13 +627,13 @@ select{
   .print-date-cell:last-child{border-right:none;flex:0 0 auto;min-width:18mm;}
   .print-date-label{font-size:7pt;color:#444;}
   .print-date-value{font-size:7.5pt;font-weight:bold;}
-  .print-body{display:flex;flex:1;border-bottom:1pt solid #000;overflow:hidden;}
+  .print-body{display:flex;flex:1;border-bottom:1pt solid #000;}
   .print-col-activity{flex:0 0 30%;border-right:1pt solid #000;padding:0.5mm 1mm;}
   .print-col-support{flex:0 0 35%;border-right:1pt solid #000;padding:0.5mm 1mm;}
   .print-col-right{flex:1;display:flex;flex-direction:column;}
   .print-col-right-cell{padding:0.5mm 1mm;border-bottom:1pt solid #000;flex:1;}
   .print-col-right-cell:last-child{border-bottom:none;}
-  .print-episode{padding:0.8mm 1.5mm;min-height:32mm;}/* 写真貼り付けスペース確保 */
+  .print-episode{padding:0.8mm 1.5mm;min-height:0;border-top:1pt solid #000;flex-shrink:0;}
   .print-col-label{font-size:7pt;color:#444;margin-bottom:0.5mm;display:block;}
   .print-col-value{font-size:6.5pt;line-height:1.2;white-space:pre-wrap;}
 
