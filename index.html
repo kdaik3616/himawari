@@ -614,9 +614,10 @@ select{
   /* 保育日誌: 横並び2段組 – 向き不問で1ページに収める */
   .print-page{width:100%;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;display:flex;flex-direction:row;gap:3mm;font-family:'Noto Sans JP',sans-serif;font-size:7.5pt;}
   .print-page:last-child{page-break-after:avoid;break-after:avoid;}
-  .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;height:100%;}
+  .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
   body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;align-items:stretch;}
+  body.print-active .print-day{height:100%!important;}
   body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:0.5mm 1mm;border-bottom:1pt solid #000;font-size:7pt;font-weight:bold;}
   .print-weekly{padding:0.5mm 1mm;border-bottom:1pt solid #000;}
