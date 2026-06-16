@@ -2880,7 +2880,7 @@ function fmtDate(dateStr){
 }
 function fmtDt(isoStr){
   const d=new Date(isoStr);
-  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  return `${d.getMonth()+1}/${d.getDate()}`;
 }
 function getWeek(dateStr){
   const d=new Date(dateStr),fy=getFY(dateStr);
