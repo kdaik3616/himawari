@@ -607,6 +607,7 @@ select{
     -webkit-print-color-adjust:exact;
     print-color-adjust:exact;
   }
+  body.print-active #print-area img{width:100%!important;display:block!important;max-width:297mm!important;}
   .app-header,.sidebar,.topbar,.year-tab-bar,#year-tabs-pc,.filter-bar,#select-all-row{display:none!important;}
   .entry-actions,.echeck,.td-actions{display:none!important;}
   .entry-table th:first-child,.entry-table td:first-child{display:none!important;}
@@ -618,8 +619,8 @@ select{
   .print-page:last-child{page-break-after:avoid;break-after:avoid;}
   .print-day{flex:1;min-width:0;border:1.5pt solid #000;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
   /* doPrintモード: 190mm固定でoverflow:hidden – 向き・OS問わず1ページに収める */
-  body.print-active .print-page{height:175mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.82);width:122%!important;align-items:stretch;}
-  body.print-active .print-day{height:100%!important;}
+  body.print-active .print-page{height:auto!important;overflow:visible!important;}
+  body.print-active .print-day{height:auto!important;}
   body.print-active .hdp-page{height:177mm!important;overflow:hidden!important;page-break-inside:avoid!important;break-inside:avoid!important;transform-origin:top left;transform:scale(0.85);width:117%!important;max-width:117%!important;margin-right:-17%!important;}
   .print-header-row{display:flex;justify-content:space-between;align-items:center;padding:0.5mm 1mm;border-bottom:1pt solid #000;font-size:7pt;font-weight:bold;}
   .print-weekly{padding:0.5mm 1mm;border-bottom:1pt solid #000;}
@@ -3763,23 +3764,51 @@ function buildPrintDay(e){
   </div>`;
 }
 
-function doPrint(list){
+async function doPrint(list){
+  if(typeof html2canvas==='undefined'){showToast('⚠️ ライブラリ読込中。再度お試しください');return;}
+  showToast('🖨️ 印刷データ準備中…');
   const pages=[];
   for(let i=0;i<list.length;){
     const e=list[i];
-    if(_isLargeEntry(e)){
-      pages.push([e]);i++;
-    } else if(i+1<list.length&&!_isLargeEntry(list[i+1])){
-      pages.push([e,list[i+1]]);i+=2;
-    } else {
-      pages.push([e]);i++;
-    }
+    if(_isLargeEntry(e)){pages.push([e]);i++;}
+    else if(i+1<list.length&&!_isLargeEntry(list[i+1])){pages.push([e,list[i+1]]);i+=2;}
+    else{pages.push([e]);i++;}
   }
-  document.getElementById('print-area').innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
+  const innerHTML=pages.map(pair=>`<div class="print-page">${pair.map(e=>buildPrintDay(e)).join('')}</div>`).join('');
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-9999px;top:0;width:277mm;background:white;z-index:-1;';
+  const style=document.createElement('style');
+  style.textContent=_getPrintCSS();
+  const content=document.createElement('div');
+  content.style.cssText='width:277mm;background:white;';
+  content.innerHTML=innerHTML;
+  wrap.appendChild(style);
+  wrap.appendChild(content);
+  document.body.appendChild(wrap);
+  await new Promise(r=>setTimeout(r,400));
+  const pageEls=content.querySelectorAll('.print-page');
+  const canvases=[];
+  for(const page of pageEls){
+    const canvas=await html2canvas(page,{
+      scale:1.2,
+      useCORS:true,
+      logging:false,
+      width:page.offsetWidth,
+      height:page.offsetHeight,
+      windowWidth:1050
+    });
+    canvases.push(canvas);
+  }
+  document.body.removeChild(wrap);
+  const pa=document.getElementById('print-area');
+  pa.innerHTML=canvases.map((c,i)=>{
+    const isLast=i===canvases.length-1;
+    return `<div style="page-break-after:${isLast?'avoid':'always'};break-after:${isLast?'avoid':'page'};margin:0;padding:0;line-height:0;"><img src="${c.toDataURL('image/jpeg',0.85)}" style="width:100%;display:block;max-width:297mm;"></div>`;
+  }).join('');
   document.body.classList.add('print-active');
   document.body.style.overflow='hidden';
   _isPrinting=true;
-  setTimeout(()=>window.print(),200);
+  setTimeout(()=>window.print(),300);
 }
 function printSingle(id){const e=entries.find(x=>x.id===id);if(!e||!canViewEntry(currentUser,e)){showToast('⚠️ 閲覧権限がありません');return;}doPrint([e]);}
 function printSelected(){
@@ -5236,17 +5265,17 @@ async function _savePDF(innerHTML,filename){
       if(i>0) pdf.addPage('a4','landscape');
       const page=pages[i];
       const canvas=await html2canvas(page,{
-        scale:1.8,
+        scale:1.2,
         useCORS:true,
         logging:false,
         width:page.offsetWidth,
         height:page.offsetHeight,
         windowWidth:1050
       });
-      const imgData=canvas.toDataURL('image/jpeg',0.85);
+      const imgData=canvas.toDataURL('image/jpeg',0.72);
       const imgW=PW-MARGIN*2;
       const imgH=(canvas.height/canvas.width)*imgW;
-      const y=MARGIN+(PH-MARGIN*2-imgH)/2;
+      const y=MARGIN;
       pdf.addImage(imgData,'JPEG',MARGIN,y,imgW,imgH);
     }
     pdf.save(filename);
