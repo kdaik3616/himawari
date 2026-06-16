@@ -5201,7 +5201,7 @@ function _getPrintCSS(){
     }
   }catch(_){}
   /* print-active クラスなしでも高さ制限が効くよう上書き */
-  css+='.print-page{height:190mm;overflow:hidden;align-items:stretch;}.print-day{height:100%;overflow:hidden;}.hdp-page{height:190mm;overflow:hidden;}';
+  css+='.print-page{overflow:visible;align-items:stretch;page-break-before:always;break-before:page;}.print-day{overflow:hidden;max-height:190mm;}.hdp-page{height:190mm;overflow:hidden;}';
   return css;
 }
 function _savePDF(innerHTML,filename){
@@ -5221,8 +5221,9 @@ function _savePDF(innerHTML,filename){
     margin:8,
     filename:filename,
     image:{type:'jpeg',quality:0.82},
-    html2canvas:{scale:1.5,useCORS:true,logging:false},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    html2canvas:{scale:1.5,useCORS:true,logging:false,windowWidth:1050},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+    pagebreak:{mode:['avoid-all'],before:['.print-page']}
   }).from(content).save()
     .then(()=>{document.body.removeChild(wrap);showToast('✅ PDF保存完了');})
     .catch(()=>{document.body.removeChild(wrap);showToast('⚠️ PDF生成に失敗しました');});
