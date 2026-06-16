@@ -3224,6 +3224,11 @@ async function confirmEntry(eid){
     try{
       await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
       touchSync('entries');
+      // ローカルを即時更新して画面に反映
+      e.confirmations=newConf;
+      saveLocal();
+      refreshCommentLists(entries);
+      renderEntries();
       showToast('↩️ 確認を取り消しました');
     }catch(err){showToast('⚠️ エラー: '+err.message);}
     return;
@@ -3233,6 +3238,10 @@ async function confirmEntry(eid){
   try{
     await fsUpdateField(COLL_ENTRIES,String(eid),'confirmations',newConf);
     touchSync('entries');
+    // ローカルを即時更新して画面に反映
+    e.confirmations=newConf;
+    saveLocal();
+    renderEntries();
     showToast('✅ 確認しました');
   }catch(err){showToast('⚠️ エラー: '+err.message);}
 }
@@ -3306,6 +3315,10 @@ async function addComment(eid){
   try{
     await fsUpdateField(COLL_ENTRIES,String(eid),'comments',newComments);
     touchSync('entries');
+    // ローカルを即時更新してコメント欄のみ再描画（入力欄は破壊しない）
+    e.comments=newComments;
+    saveLocal();
+    refreshCommentLists(entries);
     showToast('💬 コメントを送信しました');
   }catch(e2){showToast('⚠️ エラー: '+e2.message);}
 }
