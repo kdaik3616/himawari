@@ -18,6 +18,8 @@
   <link rel="apple-touch-icon" href="icon.jpg">
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>保育日誌システム</title>
@@ -5206,9 +5208,9 @@ function _getPrintCSS(){
 }
 async function _savePDF(innerHTML,filename){
   if(typeof html2pdf==='undefined'){showToast('⚠️ PDFライブラリ読込中。再度お試しください');return;}
+  if(typeof html2canvas==='undefined'||typeof window.jspdf==='undefined'){showToast('⚠️ PDFライブラリ読込中。再度お試しください');return;}
   showToast('📄 PDF生成中…');
 
-  // 全ページを非表示DOMに展開
   const wrap=document.createElement('div');
   wrap.style.cssText='position:fixed;left:-9999px;top:0;width:277mm;background:white;z-index:-1;';
   const style=document.createElement('style');
@@ -5220,19 +5222,18 @@ async function _savePDF(innerHTML,filename){
   wrap.appendChild(content);
   document.body.appendChild(wrap);
 
-  // レイアウト確定を待つ
-  await new Promise(r=>setTimeout(r,300));
+  await new Promise(r=>setTimeout(r,400));
 
   const pages=content.querySelectorAll('.print-page,.hdp-page');
   if(!pages.length){document.body.removeChild(wrap);showToast('⚠️ 出力対象がありません');return;}
 
-  // A4横のPDF寸法 (mm)
   const PW=297,PH=210,MARGIN=8;
-  const {jsPDF}=window.jspdf||{};
-  let pdf=null;
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
 
   try{
     for(let i=0;i<pages.length;i++){
+      if(i>0) pdf.addPage('a4','landscape');
       const page=pages[i];
       const canvas=await html2canvas(page,{
         scale:1.8,
@@ -5245,21 +5246,7 @@ async function _savePDF(innerHTML,filename){
       const imgData=canvas.toDataURL('image/jpeg',0.85);
       const imgW=PW-MARGIN*2;
       const imgH=(canvas.height/canvas.width)*imgW;
-      const y=MARGIN+(PH-MARGIN*2-imgH)/2; // 縦中央寄せ
-
-      if(i===0){
-        if(jsPDF){
-          pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-        } else {
-          // html2pdfのjsPDFを借用
-          pdf=await html2pdf().set({
-            jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-          }).outputPdf('jspdf');
-          pdf.deletePage(1);
-        }
-      } else {
-        pdf.addPage('a4','landscape');
-      }
+      const y=MARGIN+(PH-MARGIN*2-imgH)/2;
       pdf.addImage(imgData,'JPEG',MARGIN,y,imgW,imgH);
     }
     pdf.save(filename);
