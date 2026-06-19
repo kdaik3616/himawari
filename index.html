@@ -2022,18 +2022,25 @@ async function fsGetAll(coll){
   try{
     const token=await getFbAuthToken();
     const headers=token?{'Authorization':`Bearer ${token}`}:{};
-    const r=await fetch(`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=500`,{headers});
-    if(!r.ok){
-      const body=await r.json().catch(()=>({}));
-      const msg=(body.error&&body.error.message)||String(r.status);
-      if(r.status===401||r.status===403){
-        _showFbConnError('Firestore読み取り拒否('+r.status+'): '+msg+' — Firestoreルールを確認してください');
+    let all=[];
+    let pageToken='';
+    do{
+      const url=`${FB_BASE}/${coll}?key=${FB_KEY}&pageSize=300${pageToken?'&pageToken='+pageToken:''}`;
+      const r=await fetch(url,{headers});
+      if(!r.ok){
+        const body=await r.json().catch(()=>({}));
+        const msg=(body.error&&body.error.message)||String(r.status);
+        if(r.status===401||r.status===403){
+          _showFbConnError('Firestore読み取り拒否('+r.status+'): '+msg+' — Firestoreルールを確認してください');
+        }
+        console.warn('[fsGetAll]',coll,r.status,msg);
+        return all.length?all:[];
       }
-      console.warn('[fsGetAll]',coll,r.status,msg);
-      return [];
-    }
-    const d=await r.json();
-    return (d.documents||[]).map(fromFSDoc);
+      const d=await r.json();
+      all=all.concat((d.documents||[]).map(fromFSDoc));
+      pageToken=d.nextPageToken||'';
+    }while(pageToken);
+    return all;
   }catch(e){
     if(e instanceof TypeError){
       _showFbConnError('Firestoreへの接続に失敗しました。ネットワーク・DNS・広告ブロッカーを確認してください');
