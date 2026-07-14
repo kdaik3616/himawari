@@ -1466,7 +1466,9 @@ select{
     <!-- PC: navigation bar -->
     <div class="app-header-nav" id="app-header-nav">
       <button class="app-header-nav-btn" id="pcnav-input" onclick="showView('input')">✏️ 日誌入力</button>
-      <button class="app-header-nav-btn active" id="pcnav-entries" onclick="showView('entries')">📋 記録一覧</button>
+      <button class="app-header-nav-btn active" id="pcnav-entries" onclick="showView('entries')">
+        📋 記録一覧 <span id="comment-badge-pc" style="display:none;background:var(--orange);color:white;border-radius:8px;padding:0 6px;font-size:10px;margin-left:2px;"></span>
+      </button>
       <button class="app-header-nav-btn" id="pcnav-files" onclick="showView('files')">📁 年度別ファイル</button>
       <button class="app-header-nav-btn" id="pcnav-homediary" onclick="showView('homediary')">📓 ホーム日誌</button>
       <button class="app-header-nav-btn" id="pcnav-notices" onclick="showView('notices')">
@@ -2536,6 +2538,7 @@ function onLogin(){
     setTimeout(checkForUpdate, 3000);
     renderBottomNav();
     updateNoticeBadge();
+    updateCommentBadge();
     document.body.classList.toggle('admin-user', isAdmin(u));
     updatePcAdminNav();
     cvFilter={year:null,staff:null};
@@ -2845,6 +2848,7 @@ function showView(v){
       ta.innerHTML=''; // モバイル時はクリア
     }
     renderEntries();
+    markOwnCommentsRead();
   }
   if(v==='notices') renderNotices();
   if(v==='users') renderUsersTable();
@@ -3134,6 +3138,7 @@ function renderEntries(){
       </div>
     </div>`;
   }
+  updateCommentBadge();
 }
 
 function renderEntryCard(e){
@@ -3172,6 +3177,7 @@ const adminActions = `
           <span class="badge badge-year">${e.fiscalYear}年度</span>
           <span>${wx} ${e.weather}</span>
           ${confirmed?`<span class="badge badge-confirm">✓ 確認済み</span>`:`<span class="badge badge-pending">未確認</span>`}
+          ${e.staff===currentUser.name && (e.comments||[]).length>((e.commentReadBy||{})[currentUser.id]||0)?`<span class="badge" style="background:var(--confirm);color:white;">💬 新着コメント</span>`:''}
         </div>
       </div>
       <div class="entry-actions">
@@ -4528,11 +4534,53 @@ function updateNoticeBadge(){
       badge.textContent=unread;
     } else if(badge) badge.remove();
   }
-  // PWA アプリアイコンバッジ（ホーム画面追加時の未読数表示）
-  if('setAppBadge' in navigator){
-    if(unread>0) navigator.setAppBadge(unread).catch(()=>{});
-    else navigator.clearAppBadge().catch(()=>{});
+  updateAppIconBadge();
+}
+
+function unreadCommentEntriesForUser(u){
+  if(!u) return [];
+  return entries.filter(e=>e.staff===u.name && ((e.comments||[]).length > ((e.commentReadBy||{})[u.id]||0)));
+}
+
+function updateCommentBadge(){
+  if(!currentUser) return;
+  const unread=unreadCommentEntriesForUser(currentUser).length;
+  const el=document.getElementById('comment-badge-pc');
+  if(el){
+    el.style.display=unread>0?'inline':'none';
+    el.textContent=unread;
   }
+  const btn=document.getElementById('bnav-entries');
+  if(btn){
+    let badge=btn.querySelector('.bnav-badge');
+    if(unread>0){
+      if(!badge){badge=document.createElement('span');badge.className='bnav-badge';btn.appendChild(badge);}
+      badge.textContent=unread;
+    } else if(badge) badge.remove();
+  }
+  updateAppIconBadge();
+}
+
+function updateAppIconBadge(){
+  if(!('setAppBadge' in navigator) || !currentUser) return;
+  const total=unreadNoticesForUser(currentUser).length + unreadCommentEntriesForUser(currentUser).length;
+  if(total>0) navigator.setAppBadge(total).catch(()=>{});
+  else navigator.clearAppBadge().catch(()=>{});
+}
+
+function markOwnCommentsRead(){
+  if(!currentUser) return;
+  const targets=unreadCommentEntriesForUser(currentUser);
+  if(!targets.length) return;
+  targets.forEach(e=>{
+    const newMap={...(e.commentReadBy||{}), [currentUser.id]:(e.comments||[]).length};
+    e.commentReadBy=newMap;
+    fsUpdateField(COLL_ENTRIES,String(e.id),'commentReadBy',newMap)
+      .then(()=>touchSync('entries'))
+      .catch(err=>console.warn('commentReadBy更新エラー:',err));
+  });
+  saveLocal();
+  updateCommentBadge();
 }
 
 function showNoticeAlert(n){
