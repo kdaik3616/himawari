@@ -2848,7 +2848,6 @@ function showView(v){
       ta.innerHTML=''; // モバイル時はクリア
     }
     renderEntries();
-    markOwnCommentsRead();
   }
   if(v==='notices') renderNotices();
   if(v==='users') renderUsersTable();
@@ -3177,7 +3176,7 @@ const adminActions = `
           <span class="badge badge-year">${e.fiscalYear}年度</span>
           <span>${wx} ${e.weather}</span>
           ${confirmed?`<span class="badge badge-confirm">✓ 確認済み</span>`:`<span class="badge badge-pending">未確認</span>`}
-          ${e.staff===currentUser.name && (e.comments||[]).length>((e.commentReadBy||{})[currentUser.id]||0)?`<span class="badge" style="background:var(--confirm);color:white;">💬 新着コメント</span>`:''}
+          ${e.staff===currentUser.name && (e.comments||[]).length>((e.commentReadBy||{})[currentUser.id]||0)?`<button class="badge" style="background:var(--confirm);color:white;border:none;cursor:pointer;" onclick="markCommentRead(${e.id})">💬 新着コメントを確認する</button>`:''}
         </div>
       </div>
       <div class="entry-actions">
@@ -4568,19 +4567,21 @@ function updateAppIconBadge(){
   else navigator.clearAppBadge().catch(()=>{});
 }
 
-function markOwnCommentsRead(){
+async function markCommentRead(eid){
   if(!currentUser) return;
-  const targets=unreadCommentEntriesForUser(currentUser);
-  if(!targets.length) return;
-  targets.forEach(e=>{
-    const newMap={...(e.commentReadBy||{}), [currentUser.id]:(e.comments||[]).length};
-    e.commentReadBy=newMap;
-    fsUpdateField(COLL_ENTRIES,String(e.id),'commentReadBy',newMap)
-      .then(()=>touchSync('entries'))
-      .catch(err=>console.warn('commentReadBy更新エラー:',err));
-  });
+  const e=entries.find(x=>x.id===eid);
+  if(!e) return;
+  const newMap={...(e.commentReadBy||{}), [currentUser.id]:(e.comments||[]).length};
+  e.commentReadBy=newMap;
   saveLocal();
-  updateCommentBadge();
+  renderEntries();
+  try{
+    await fsUpdateField(COLL_ENTRIES,String(eid),'commentReadBy',newMap);
+    touchSync('entries');
+    showToast('✅ コメントを確認しました');
+  }catch(err){
+    showToast('⚠️ エラー: '+err.message);
+  }
 }
 
 function showNoticeAlert(n){
