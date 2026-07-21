@@ -5159,7 +5159,7 @@ function renderHomeDiaryList() {
   ${e.sharedInfo?`<div style="margin-top:8px;padding:8px;background:var(--sun-light);border-radius:6px;"><b>📋 共有事項</b><br>${esc(e.sharedInfo).replace(/\n/g,'<br>')}</div>`:''}
   ${e.childrenNotes?`<div style="margin-top:8px;padding:8px;background:var(--green-light);border-radius:6px;"><b>👧 子どもたちの様子</b><br>${esc(e.childrenNotes).replace(/\n/g,'<br>')}</div>`:''}
   <div style="margin-top:8px;color:#555;font-size:12px;">
-    👥 全体人数：自動合計 <b>${_hdCalcTotal(e).auto || '-'}</b>人 ／ 手入力 <b>${esc(String(_hdCalcTotal(e).manual || '-'))}</b>人
+    👥 全体人数：1号・新2号 <b>${_hdCalcTotal(e).auto || '-'}</b>人 ／ 総合計 <b>${esc(String(_hdCalcTotal(e).manual || '-'))}</b>人
     <span style="color:#999;font-size:11px;">（15:30→${esc(e.headcount1530||'-')} / 16:30→${esc(e.headcount1630||'-')} / 17:30→${esc(e.headcount1730||'-')} / 18:30→${esc(e.headcount1830||'-')}）</span>
   </div>
 </div>
