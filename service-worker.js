@@ -1,5 +1,5 @@
 // デプロイ時にこの日付を更新すること → 旧キャッシュが自動削除される
-const CACHE_NAME = 'himawari-20260818-001';
+const CACHE_NAME = 'himawari-20260818-002';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -11,7 +11,11 @@ const STATIC_ASSETS = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(cache => Promise.all(
+        STATIC_ASSETS.map(url =>
+          fetch(url, { cache: 'no-store' }).then(res => cache.put(url, res))
+        )
+      ))
       .then(() => self.skipWaiting())
   );
 });
@@ -46,7 +50,7 @@ self.addEventListener('fetch', event => {
   // HTMLナビゲーション: ネットワーク優先 → オフライン時はキャッシュ
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then(res => {
           if (res.ok) {
             const clone = res.clone();
