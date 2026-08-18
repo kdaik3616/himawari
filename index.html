@@ -3667,6 +3667,7 @@ async function addUser(){
   try{
     await fsSet(COLL_USERS,u.id,u);
     touchSync('users');
+    users.push(u); saveLocal(); renderUsersTable(); renderLoginUsers();
     document.getElementById('new-user-name').value='';
     document.getElementById('new-user-pin').value='';
     showToast(name+' を追加しました');
@@ -3680,6 +3681,7 @@ async function deleteUser(uid){
   try{
     await fsDelete(COLL_USERS,uid);
     touchSync('users');
+    users=users.filter(x=>x.id!==uid); saveLocal(); renderUsersTable(); renderLoginUsers();
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
 
