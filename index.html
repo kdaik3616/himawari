@@ -3451,6 +3451,7 @@ async function toggleHomeroom(uid){
   try{
     await fsUpdateField(COLL_USERS,uid,'homeroom',newVal);
     touchSync('users');
+    localStorage.removeItem('cache_h_users');
     showToast(newVal?'✅ '+u.name+' を担任に設定しました':'✅ '+u.name+' の担任を解除しました');
   }catch(e){
     u.homeroom=!newVal;
@@ -3483,7 +3484,7 @@ async function saveUserName(uid){
   if(!newName){inp.value=u.name; return;}
   if(newName===u.name) return;
   const old=u.name; u.name=newName; saveLocal(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'name',newName); touchSync('users'); showToast('✅ 名前を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'name',newName); touchSync('users'); localStorage.removeItem('cache_h_users'); showToast('✅ 名前を変更しました');}
   catch(e){u.name=old; saveLocal(); if(inp)inp.value=old; showToast('⚠️ '+e.message);}
 }
 
@@ -3494,7 +3495,7 @@ async function saveUserGrade(uid){
   const u=users.find(x=>x.id===uid);
   if(!u||getUserGrade(u)===newGrade) return;
   u.grade=newGrade; saveLocal(); renderUsersTable(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'grade',newGrade); touchSync('users'); showToast('✅ 学年を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'grade',newGrade); touchSync('users'); localStorage.removeItem('cache_h_users'); showToast('✅ 学年を変更しました');}
   catch(e){showToast('⚠️ '+e.message);}
 }
 
@@ -3505,7 +3506,7 @@ async function changeRoleInline(uid){
   const u=users.find(x=>x.id===uid);
   if(!u||newRole===u.role) return;
   u.role=newRole; saveLocal(); renderUsersTable(); renderLoginUsers();
-  try{await fsUpdateField(COLL_USERS,uid,'role',newRole); touchSync('users'); showToast('✅ '+u.name+' の役職を変更しました');}
+  try{await fsUpdateField(COLL_USERS,uid,'role',newRole); touchSync('users'); localStorage.removeItem('cache_h_users'); showToast('✅ '+u.name+' の役職を変更しました');}
   catch(e){showToast('⚠️ '+e.message);}
 }
 
@@ -3667,6 +3668,7 @@ async function addUser(){
   try{
     await fsSet(COLL_USERS,u.id,u);
     touchSync('users');
+    localStorage.removeItem('cache_h_users');
     users.push(u); saveLocal(); renderUsersTable(); renderLoginUsers();
     document.getElementById('new-user-name').value='';
     document.getElementById('new-user-pin').value='';
@@ -3681,6 +3683,7 @@ async function deleteUser(uid){
   try{
     await fsDelete(COLL_USERS,uid);
     touchSync('users');
+    localStorage.removeItem('cache_h_users');
     users=users.filter(x=>x.id!==uid); saveLocal(); renderUsersTable(); renderLoginUsers();
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
@@ -3691,6 +3694,7 @@ async function resetPin(uid){
   if(!confirm(u.name+'のPINを「1234」に初期化しますか？'))return;
   try{
     await fsUpdateField(COLL_USERS,uid,'pin','1234');
+    localStorage.removeItem('cache_h_users');
     showToast(u.name+' のPINを初期化しました（1234）');
   }catch(e){showToast('⚠️ エラー: '+e.message);}
 }
@@ -4242,7 +4246,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260818-002';
+const APP_VERSION = '20260818-003';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
