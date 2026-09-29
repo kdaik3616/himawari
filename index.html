@@ -1546,6 +1546,10 @@ select{
                     <option value="晴">☀️ 晴</option><option value="曇">🌥 曇</option>
                     <option value="雨">🌧 雨</option><option value="雪">❄️ 雪</option>
                     <option value="晴時々曇">⛅ 晴時々曇</option><option value="曇時々雨">🌦 曇時々雨</option>
+                    <option value="晴時々雨">🌤☂️ 晴時々雨</option>
+                    <option value="晴のち曇">☀️→🌥 晴のち曇</option><option value="曇のち晴">🌥→☀️ 曇のち晴</option>
+                    <option value="曇のち雨">🌥→🌧 曇のち雨</option><option value="雨のち曇">🌧→🌥 雨のち曇</option>
+                    <option value="雨のち晴">🌧→☀️ 雨のち晴</option>
                   </select>
                 </div>
               </div>
@@ -1603,6 +1607,8 @@ select{
   <div style="flex:1;"><label class="form-label">天気</label>
     <select id="hd-weather" style="width:100%;">
       <option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>晴時々曇</option>
+      <option>晴時々雨</option><option>晴のち曇</option><option>曇のち晴</option>
+      <option>曇のち雨</option><option>雨のち曇</option><option>雨のち晴</option>
     </select>
   </div>
 </div>
@@ -2178,7 +2184,9 @@ const ROLE_LABEL={
 // お知らせ全区分閲覧可能な役職
 const NOTICE_FULL_ACCESS=['principal','advisor','vice_principal','head_teacher','asst_head','free'];
 const ROLE_ORDER={'principal':0,'vice_principal':1,'staff':2};
-const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦'};
+const WX={'晴':'☀️','曇':'🌥','雨':'🌧','雪':'❄️','晴時々曇':'⛅','曇時々雨':'🌦',
+  '晴時々雨':'🌤☂️','晴のち曇':'☀️→🌥','曇のち晴':'🌥→☀️',
+  '曇のち雨':'🌥→🌧','雨のち曇':'🌧→🌥','雨のち晴':'🌧→☀️'};
 
 function isAdmin(u){return u&&['principal','advisor','vice_principal'].includes(u.role);}
 // エクスポート・バックアップ権限：管理者＋フリー
@@ -4246,7 +4254,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20260818-003';
+const APP_VERSION = '20260929-001';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
