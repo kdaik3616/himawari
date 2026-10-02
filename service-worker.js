@@ -1,5 +1,5 @@
 // デプロイ時にこの日付を更新すること → 旧キャッシュが自動削除される
-const CACHE_NAME = 'himawari-20261002-001';
+const CACHE_NAME = 'himawari-20261002-002';
 const STATIC_ASSETS = [
   './',
   './index.html',

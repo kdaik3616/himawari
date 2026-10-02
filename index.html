@@ -382,6 +382,7 @@ select{
 }
 .btn-primary:hover{background:linear-gradient(135deg,#F09030,var(--orange));transform:translateY(-1px);box-shadow:0 5px 14px rgba(232,137,42,0.4);}
 .btn-primary.full{width:100%;padding:15px;font-size:16px;border-radius:14px;}
+.btn-secondary.full{width:100%;padding:13px;font-size:15px;border-radius:14px;margin-bottom:10px;}
 .btn-secondary{
   padding:8px 16px;background:var(--white);color:var(--green-dark);
   border:2px solid var(--green);border-radius:22px;
@@ -1586,7 +1587,8 @@ select{
             <div class="section-header sh-rose">💛 今日の子どもの様子・つぶやき・エピソード</div>
             <div class="section-body"><textarea id="input-episode" class="tall" placeholder="印象に残ったエピソードや子どもの言葉、様子など..."></textarea></div>
           </div>
-          <button class="btn-primary full" onclick="saveEntry()">💾 保存する</button>
+          <button class="btn-secondary full" onclick="saveEntry(true)">📝 下書き保存（自分だけに表示）</button>
+          <button class="btn-primary full" onclick="saveEntry(false)">💾 保存して提出</button>
           <div style="height:32px"></div>
         </div>
 
@@ -1895,6 +1897,13 @@ select{
               </div>
             </div>
           </div>
+          <div class="section-card" id="trash-card" style="display:none;">
+            <div class="section-header">🗑 ゴミ箱（管理者のみ）</div>
+            <div class="section-body">
+              <p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">削除された記録・お知らせ・ホーム日誌を確認し、復元できます。</p>
+              <button class="btn-secondary" onclick="openTrash()">🗑 ゴミ箱を開く</button>
+            </div>
+          </div>
           <div class="section-card" id="staff-management-card">
             <div class="section-header">🗂 バックアップ・データ管理</div>
             <div class="section-body">
@@ -2088,37 +2097,37 @@ async function fetchUsers(){
 async function fetchEntries(){
   try{
     const cached=JSON.parse(localStorage.getItem('cache_h_entries')||'null');
-    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data;
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data.filter(x=>!x.deleted);
   }catch(e){}
   const data=await fsGetAll(COLL_ENTRIES);
   if(data.length){
     try{localStorage.setItem('cache_h_entries',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
   }
-  return data;
+  return data.filter(x=>!x.deleted);
 }
 
 async function fetchNotices(){
   try{
     const cached=JSON.parse(localStorage.getItem('cache_h_notices')||'null');
-    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<60000) return cached.data;
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<60000) return cached.data.filter(x=>!x.deleted);
   }catch(e){}
   const data=await fsGetAll(COLL_NOTICES);
   if(data.length){
     try{localStorage.setItem('cache_h_notices',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
   }
-  return data;
+  return data.filter(x=>!x.deleted);
 }
 
 async function fetchHomeDiary(){
   try{
     const cached=JSON.parse(localStorage.getItem('cache_homediary')||'null');
-    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data;
+    if(cached&&cached.timestamp&&Date.now()-cached.timestamp<600000) return cached.data.filter(x=>!x.deleted);
   }catch(e){}
   const data=await fsGetAll(COLL_HOMEDIARY);
   if(data.length){
     try{localStorage.setItem('cache_homediary',JSON.stringify({data,timestamp:Date.now()}));}catch(e){}
   }
-  return data;
+  return data.filter(x=>!x.deleted);
 }
 
 async function fsGet(coll,docId){
@@ -2178,6 +2187,33 @@ async function fsUpdateField(coll,docId,fieldName,value){
   });
 }
 
+// 論理削除（ゴミ箱方式）：deleted / deletedAt / deletedById / deletedByName をまとめて更新。復元時は deleted=false
+async function fsSoftDelete(coll,docId,deleted){
+  const token=await getFbAuthToken();
+  const headers={'Content-Type':'application/json'};
+  if(token) headers['Authorization']=`Bearer ${token}`;
+  const fields={
+    deleted:deleted,
+    deletedAt:deleted?new Date().toISOString():'',
+    deletedById:deleted?(currentUser?.id||''):'',
+    deletedByName:deleted?(currentUser?.name||''):''
+  };
+  const mask=Object.keys(fields).map(f=>`updateMask.fieldPaths=${f}`).join('&');
+  let r;
+  try{
+    r=await fetch(`${FB_BASE}/${coll}/${encodeURIComponent(String(docId))}?key=${FB_KEY}&${mask}&currentDocument.exists=true`,{
+      method:'PATCH',headers,
+      body:JSON.stringify({fields:toFSFields(fields)})
+    });
+  }catch(e){
+    throw new Error('Firestoreへの接続に失敗しました（ネットワークエラー）');
+  }
+  if(!r.ok){
+    const body=await r.json().catch(()=>({}));
+    throw new Error('Firestore更新エラー('+r.status+'): '+((body.error&&body.error.message)||r.status));
+  }
+}
+
 // ==================================================
 // STATE
 // ==================================================
@@ -2232,8 +2268,11 @@ function isAdmin(u){return u&&['principal','advisor','vice_principal'].includes(
 // エクスポート・バックアップ権限：管理者＋フリー
 function canExport(u){ return u && ['principal','advisor','vice_principal','free'].includes(u.role); }
 // 保育日誌の閲覧権限：記載した本人・園長・副園長のみ
+// 下書き（isDraft）は本人のみ閲覧可（管理者を含め他人には見せない）
 function canViewEntry(u,entry){
-  return u&&(['principal','advisor','vice_principal'].includes(u.role)||entry.staff===u.name);
+  if(!u) return false;
+  if(entry.isDraft) return entry.staff===u.name;
+  return ['principal','advisor','vice_principal'].includes(u.role)||entry.staff===u.name;
 }
 
 // ==================================================
@@ -2737,7 +2776,7 @@ function getYears(){return[...new Set(entries.map(e=>e.fiscalYear))].filter(Bool
 function getStaffForYear(year){
   // 一覧で全スタッフを選べるのは園長・副園長のみ
   if(!['principal','vice_principal'].includes(currentUser.role)){return[currentUser.name];}
-  return[...new Set(entries.filter(e=>e.fiscalYear===year).map(e=>e.staff))].sort();
+  return[...new Set(entries.filter(e=>e.fiscalYear===year&&canViewEntry(currentUser,e)).map(e=>e.staff))].sort();
 }
 function countE(year,staff){
   return entries.filter(e=>e.fiscalYear===year&&(!staff||e.staff===staff)&&canViewEntry(currentUser,e)).length;
@@ -2937,6 +2976,8 @@ function showView(v){
   if(v==='settings'){
     const card = document.getElementById('staff-management-card');
     if(card) card.style.display = canExport(currentUser) ? '' : 'none';
+    const trashCard = document.getElementById('trash-card');
+    if(trashCard) trashCard.style.display = isAdmin(currentUser) ? '' : 'none';
     const ps = document.getElementById('setting-page-size');
     if(ps) ps.value = pageSize===Infinity ? 'all' : String(pageSize);
     renderDataStats();
@@ -2989,11 +3030,14 @@ function getWeek(dateStr){
 // ==================================================
 // SAVE ENTRY
 // ==================================================
-async function saveEntry(){
+async function saveEntry(isDraft=false){
+  isDraft=!!isDraft;
   const date=document.getElementById('input-date').value;
   if(!date){showToast('⚠️ 日付は必須です');return;}
   const staff=currentUser.name;
   const existing=entries.find(e=>e.staff===staff&&e.date===date);
+  // isDraft がない既存データは提出済み扱い
+  if(isDraft&&existing&&!existing.isDraft){showToast('⚠️ 提出済みの記録は下書きに戻せません');return;}
   const docId=String(existing?.id||Date.now());
   const entry={
     id:Number(docId),staff,date,
@@ -3011,8 +3055,11 @@ async function saveEntry(){
     episode:document.getElementById('input-episode').value,
     confirmations:existing?.confirmations||[],
     comments:existing?.comments||[],
+    isDraft,
     savedAt:new Date().toISOString()
   };
+  if(existing?.submittedAt) entry.submittedAt=existing.submittedAt;
+  else if(!isDraft) entry.submittedAt=new Date().toISOString();
   // 同じ日の既存エントリがある場合、空欄フィールドは既存値で補完（空白上書き防止）
   if(existing){
     ['weekday','weather','weeklyGoal','dailyGoal',
@@ -3028,8 +3075,12 @@ async function saveEntry(){
   renderYearTree();
   renderYearTabs();
   if(currentView==='entries') renderEntries();
-  showToast('✅ 保存しました！');
-  clearInputForm();
+  if(isDraft){
+    showToast('📝 下書きを保存しました（あなただけに表示されます）');
+  }else{
+    showToast('✅ 提出しました！');
+    clearInputForm();
+  }
   // Firebaseにも非同期で同期
   fsSet(COLL_ENTRIES,docId,entry).catch(e=>console.warn('Firebase save error:',e));
   touchSync('entries');
@@ -3240,11 +3291,13 @@ function showMoreEntries(){
   updateSelUI();
 }
 
+const DRAFT_BADGE='<span style="font-size:11px;padding:2px 8px;background:#fff3cd;border:1px solid #ffc107;border-radius:10px;color:#856404;">📝 下書き</span>';
 function renderEntryCard(e){
   const wx=WX[e.weather]||'';
   const confirmed=e.confirmations&&e.confirmations.length>0;
-  const confirmHTML=buildConfirmSection(e);
-  const commentsHTML=buildCommentsSection(e);
+  // 下書きは確認・コメントの対象外
+  const confirmHTML=e.isDraft?'':buildConfirmSection(e);
+  const commentsHTML=e.isDraft?'':buildCommentsSection(e);
   const fv=(label,val,full=false)=>`
     <div class="report-field ${full?'full':''}">
       <div class="rfl">${label}</div>
@@ -3261,7 +3314,7 @@ const adminActions = `
     ${isAdmin(currentUser) || e.staff === currentUser.name
         ? `<button class="btn-secondary btn-sm print-btn-pc" onclick="printSingle(${e.id})">🖨</button><button class="btn-secondary btn-sm pdf-btn-mobile" onclick="savePDFSingle(${e.id})">📄</button>`
         : ''}
-    ${isAdmin(currentUser)
+    ${canDeleteEntry(currentUser,e)
         ? `<button class="btn-danger btn-sm" onclick="deleteEntry(${e.id})">削除</button>`
         : ''}
 `;
@@ -3272,15 +3325,16 @@ const adminActions = `
         <input type="checkbox" class="echeck" data-id="${e.id}" onchange="updateSelUI()" style="width:auto;margin:0;cursor:pointer;">
         <div class="entry-meta">
           <span class="entry-date">${fmtDate(e.date)}</span>
+          ${e.isDraft?DRAFT_BADGE:''}
           <span class="badge badge-sage">${e.staff}${staffHB}</span>
           <span class="badge badge-year">${e.fiscalYear}年度</span>
           <span>${wx} ${e.weather}</span>
-          ${confirmed?`<span class="badge badge-confirm">✓ 確認済み</span>`:`<span class="badge badge-pending">未確認</span>`}
+          ${e.isDraft?'':confirmed?`<span class="badge badge-confirm">✓ 確認済み</span>`:`<span class="badge badge-pending">未確認</span>`}
           ${e.staff===currentUser.name && (e.comments||[]).length>((e.commentReadBy||{})[currentUser.id]||0)?`<button class="badge" style="background:var(--confirm);color:white;border:none;cursor:pointer;" onclick="markCommentRead(${e.id})">💬 新着コメントを確認する</button>`:''}
         </div>
       </div>
       <div class="entry-actions">
-        ${isAdmin(currentUser)?buildConfirmBtn(e):''}
+        ${isAdmin(currentUser)&&!e.isDraft?buildConfirmBtn(e):''}
         ${adminActions}
       </div>
     </div>
@@ -3442,17 +3496,122 @@ async function addComment(eid){
 // ==================================================
 // DELETE ENTRY
 // ==================================================
+// ==================================================
+// ゴミ箱（論理削除の確認・復元。管理者のみ。完全削除はしない）
+// ==================================================
+const TRASH_TYPES={
+  entries:  {label:'記録',      coll:COLL_ENTRIES,   sync:'entries',   cache:'cache_h_entries'},
+  notices:  {label:'お知らせ',  coll:COLL_NOTICES,   sync:'notices',   cache:'cache_h_notices'},
+  homediary:{label:'ホーム日誌',coll:COLL_HOMEDIARY, sync:'homediary', cache:'cache_homediary'}
+};
+let _trashData={entries:[],notices:[],homediary:[]};
+let _trashTab='entries';
+async function openTrash(){
+  if(!isAdmin(currentUser)){showToast('⚠️ 権限がありません');return;}
+  document.getElementById('trash-modal').style.display='flex';
+  document.getElementById('trash-tabs').innerHTML='';
+  document.getElementById('trash-list').innerHTML='<div style="text-align:center;padding:32px;color:#888;">🔄 読み込み中...</div>';
+  try{
+    const keys=Object.keys(TRASH_TYPES);
+    const lists=await Promise.all(keys.map(k=>fsGetAll(TRASH_TYPES[k].coll)));
+    keys.forEach((k,i)=>{
+      _trashData[k]=lists[i].filter(x=>x.deleted===true)
+        .sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+    });
+  }catch(e){
+    console.warn('trash fetch error:',e);
+    document.getElementById('trash-list').innerHTML='<div style="text-align:center;padding:32px;color:var(--danger);">⚠️ 読み込みに失敗しました</div>';
+    return;
+  }
+  renderTrash();
+}
+function closeTrash(){
+  document.getElementById('trash-modal').style.display='none';
+}
+function setTrashTab(tab){ _trashTab=tab; renderTrash(); }
+function renderTrash(){
+  document.getElementById('trash-tabs').innerHTML=Object.keys(TRASH_TYPES).map(k=>
+    `<button class="${k===_trashTab?'btn-primary':'btn-secondary'} btn-sm" onclick="setTrashTab('${k}')">${TRASH_TYPES[k].label}（${_trashData[k].length}）</button>`
+  ).join('');
+  const list=_trashData[_trashTab];
+  const el=document.getElementById('trash-list');
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">削除された項目はありません</div>';
+    return;
+  }
+  el.innerHTML=list.map(x=>{
+    let title, writer;
+    if(_trashTab==='entries'){
+      title=fmtDate(x.date)+(x.isDraft?' '+DRAFT_BADGE:'');
+      writer=x.staff;
+    } else if(_trashTab==='notices'){
+      title=esc(x.title||'（無題）');
+      writer=x.authorName;
+    } else {
+      title=fmtDate(x.date);
+      writer=[x.earlyStaff&&'早番:'+x.earlyStaff, x.lateStaff&&'遅番:'+x.lateStaff].filter(Boolean).join(' / ');
+    }
+    return `<div class="entry-card" style="margin-bottom:10px;">
+      <div class="entry-card-header" style="flex-wrap:wrap;gap:8px;">
+        <div class="entry-meta" style="flex-direction:column;align-items:flex-start;gap:4px;">
+          <span class="entry-date">${title}</span>
+          <span style="font-size:12px;">✍️ 記載者：${esc(writer||'—')}</span>
+          <span style="font-size:12px;color:var(--warm-gray);">🗑 ${esc(x.deletedByName||'—')}　${x.deletedAt?fmtDt(x.deletedAt):'—'}</span>
+        </div>
+        <div class="entry-actions">
+          <button class="btn-secondary btn-sm" onclick="restoreTrashItem('${_trashTab}','${esc(String(x.id))}')">↩ 復元</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function restoreTrashItem(type,id){
+  if(!isAdmin(currentUser)) return;
+  const t=TRASH_TYPES[type];
+  if(!t||!confirm('この項目を復元しますか？')) return;
+  try{
+    await fsSoftDelete(t.coll,id,false);
+  }catch(e){
+    console.warn('restore error:',e);
+    showToast('⚠️ 復元に失敗しました');
+    return;
+  }
+  localStorage.removeItem(t.cache);
+  touchSync(t.sync);
+  // touchSyncで自端末の同期メタが最新になるため、0に戻して次のpollDataで必ず再取得させる
+  localSyncMeta[t.sync]=0;
+  _trashData[type]=_trashData[type].filter(x=>String(x.id)!==String(id));
+  renderTrash();
+  showToast('↩ 復元しました');
+  await pollData();
+  if(currentView==='entries'){ renderYearTree(); renderYearTabs(); }
+}
+
+// 保育日誌の削除権限：管理者は常に可、本人は確認前の記録のみ可
+function canDeleteEntry(u,e){
+  if(!u||!e) return false;
+  if(isAdmin(u)) return true;
+  const confirmed = e.confirmations && e.confirmations.length>0;
+  return e.staff===u.name && !confirmed;
+}
 async function deleteEntry(id){
-  if(!confirm('この記録を削除しますか？'))return;
   const _de=entries.find(e=>e.id===id);
-  if(!_de||!canViewEntry(currentUser,_de)){showToast('⚠️ 閲覧権限がありません');return;}
+  if(!_de||!canDeleteEntry(currentUser,_de)){showToast('⚠️ 確認済みの記録は削除できません。管理者に依頼してください');return;}
+  if(!confirm('この記録を削除しますか？\n（誤って削除した場合は管理者が復元できます）'))return;
+  try{
+    await fsSoftDelete(COLL_ENTRIES,String(id),true);
+  }catch(e){
+    console.warn('Firebase delete error:',e);
+    showToast('⚠️ 削除に失敗しました');
+    return;
+  }
+  touchSync('entries');
+  localStorage.removeItem('cache_h_entries');
   entries=entries.filter(e=>e.id!==id);
   saveLocal();
   renderYearTree();
   renderEntries();
   showToast('削除しました');
-  fsDelete(COLL_ENTRIES,String(id)).catch(e=>console.warn('Firebase delete error:',e));
-  touchSync('entries');
 }
 
 // ==================================================
@@ -3822,7 +3981,7 @@ function renderDataStats(){
   if(!el)return;
   const yrs=getYears();
   if(!yrs.length){el.textContent='記録はまだありません。';return;}
-  el.innerHTML='合計 <strong>'+entries.length+'件</strong> の記録 ／ '+yrs.map(y=>y+'年度：'+countE(y,null)+'件').join('、');
+  el.innerHTML='合計 <strong>'+entries.filter(e=>!e.isDraft).length+'件</strong> の記録 ／ '+yrs.map(y=>y+'年度：'+countE(y,null)+'件').join('、');
 }
 
 // ==================================================
@@ -3932,7 +4091,9 @@ function printSingle(id){const e=entries.find(x=>x.id===id);if(!e||!canViewEntry
 function printSelected(){
   const ids=[...document.querySelectorAll('.echeck:checked')].map(c=>+c.dataset.id);
   if(!ids.length){showToast('印刷する記録を選択してください');return;}
-  doPrint(entries.filter(e=>ids.includes(e.id)).sort((a,b)=>a.date.localeCompare(b.date)));
+  const list=entries.filter(e=>ids.includes(e.id)&&!e.isDraft).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!list.length){showToast('⚠️ 下書きは一括出力できません');return;}
+  doPrint(list);
 }
 
 // ==================================================
@@ -4075,7 +4236,7 @@ function renderEntriesTable(filtered){
     const days=['日','月','火','水','木','金','土'];
     return `<tr class="${confirmed?'confirmed':'unconfirmed'}">
       <td style="text-align:center;"><input type="checkbox" class="echeck" data-id="${e.id}" onchange="updateSelUI()" style="width:auto;cursor:pointer;"></td>
-      <td class="td-date">${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:11px;color:var(--warm-gray)">${days[d.getDay()]}</span></td>
+      <td class="td-date">${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:11px;color:var(--warm-gray)">${days[d.getDay()]}</span>${e.isDraft?'<br>'+DRAFT_BADGE:''}</td>
       <td class="td-staff"><span class="badge badge-sage">${e.staff}</span><br><span style="font-size:11px;color:var(--warm-gray)">${wx}${e.weather}</span></td>
       <td><div class="cell-truncate">${esc(e.weeklyGoal)||'—'}</div></td>
       <td><div class="cell-truncate">${esc(e.activity)||'—'}</div></td>
@@ -4083,11 +4244,11 @@ function renderEntriesTable(filtered){
       <td><div class="cell-truncate">${esc(e.reflection)||'—'}</div></td>
       <td><div class="cell-truncate">${esc(e.episode)||'—'}</div></td>
       <td class="td-actions">
-        ${confirmed
+        ${e.isDraft ? DRAFT_BADGE : confirmed
           ? `<span style="color:var(--green-dark);font-size:12px;font-weight:600;">✓ 確認済み</span>`
           : (isAdm ? `<button class="btn-confirm btn-sm" onclick="confirmEntry(${e.id})">✔ 確認</button>` : '<span style="font-size:11px;color:var(--orange);">未確認</span>')}
         ${e.staff === currentUser.name ? `<br><button class="btn-secondary btn-sm" style="margin-top:4px;" onclick="editEntry(${e.id})">✏️ 編集</button>` : ''}
-        ${isAdm?`<br><button class="btn-danger btn-sm" style="margin-top:4px;" onclick="deleteEntry(${e.id})">削除</button>`:''}
+        ${canDeleteEntry(currentUser,e)?`<br><button class="btn-danger btn-sm" style="margin-top:4px;" onclick="deleteEntry(${e.id})">削除</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -4124,7 +4285,7 @@ function renderEntriesWeekly(filtered){
     const wx=WX[e.weather]||'';
     return `<div class="multiday-day" id="mday-${e.id}">
       <div class="multiday-day-header">
-        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）</div>
+        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）${e.isDraft?' '+DRAFT_BADGE:''}</div>
         <div class="multiday-day-meta">${e.staff} ${wx}${e.weather}</div>
       </div>`;
   }).join('');
@@ -4144,8 +4305,8 @@ function renderEntriesWeekly(filtered){
     const confs=e.confirmations||[];
     const confirmed=confs.length>0;
     return `<div class="multiday-confirm">
-      ${confs.map(c=>`<span class="multiday-confirm-item">✓ ${c.userName}</span>`).join('')||'<span style="color:var(--border);font-size:11px;">未確認</span>'}
-      ${isAdm&&!confirmed?`<button class="btn-confirm btn-sm" style="font-size:10px;padding:4px 8px;margin-top:4px;" onclick="confirmEntry(${e.id})">✔ 確認</button>`:''}
+      ${e.isDraft?DRAFT_BADGE:confs.map(c=>`<span class="multiday-confirm-item">✓ ${c.userName}</span>`).join('')||'<span style="color:var(--border);font-size:11px;">未確認</span>'}
+      ${isAdm&&!confirmed&&!e.isDraft?`<button class="btn-confirm btn-sm" style="font-size:10px;padding:4px 8px;margin-top:4px;" onclick="confirmEntry(${e.id})">✔ 確認</button>`:''}
     </div>`;
   }).join('');
 
@@ -4156,7 +4317,7 @@ function renderEntriesWeekly(filtered){
     const wx=WX[e.weather]||'';
     return `<div class="multiday-day">
       <div class="multiday-day-header">
-        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）</div>
+        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）${e.isDraft?' '+DRAFT_BADGE:''}</div>
         <div class="multiday-day-meta">${e.staff} ${wx}${e.weather}</div>
       </div>
       ${fields.map(f=>{
@@ -4175,13 +4336,13 @@ function renderEntriesWeekly(filtered){
     const confs=e.confirmations||[];
     return `<div class="multiday-day">
       <div class="multiday-day-header">
-        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）</div>
+        <div class="multiday-day-date">${d.getMonth()+1}月${d.getDate()}日（${dow}）${e.isDraft?' '+DRAFT_BADGE:''}</div>
         <div class="multiday-day-meta">${e.staff} ${wx}${e.weather}</div>
       </div>
       ${fields.map(f=>{const v=e[f];return `<div class="multiday-cell ${v?'':'empty'}">${v?esc(v):'—'}</div>`;}).join('')}
       <div class="multiday-confirm">
-        ${confs.map(c=>`<span class="multiday-confirm-item">✓ ${c.userName}</span>`).join('')||'<span style="color:var(--border);font-size:11px;">未確認</span>'}
-        ${isAdm&&!confs.length?`<button class="btn-confirm btn-sm" style="font-size:10px;padding:4px 8px;margin-top:4px;" onclick="confirmEntry(${e.id})">✔ 確認</button>`:''}
+        ${e.isDraft?DRAFT_BADGE:confs.map(c=>`<span class="multiday-confirm-item">✓ ${c.userName}</span>`).join('')||'<span style="color:var(--border);font-size:11px;">未確認</span>'}
+        ${isAdm&&!confs.length&&!e.isDraft?`<button class="btn-confirm btn-sm" style="font-size:10px;padding:4px 8px;margin-top:4px;" onclick="confirmEntry(${e.id})">✔ 確認</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -4347,7 +4508,7 @@ function stopListeners(){
 // ==================================================
 // VERSION CHECK & AUTO UPDATE
 // ==================================================
-const APP_VERSION = '20261002-001';
+const APP_VERSION = '20261002-002';
 
 function showUpdateBanner() {
   if(document.getElementById('update-banner')) return;
@@ -4612,15 +4773,19 @@ async function markNoticeRead(nid){
 
 async function deleteNotice(nid){
   if(!confirm('このお知らせを削除しますか？'))return;
+  try{
+    await fsSoftDelete(COLL_NOTICES,String(nid),true);
+  }catch(e){
+    console.warn('Firebase delete error:',e);
+    showToast('⚠️ 削除に失敗しました');
+    return;
+  }
+  touchSync('notices');
+  localStorage.removeItem('cache_h_notices');
   notices = notices.filter(n => n.id !== nid);
   saveLocal();
   updateNoticeBadge();
   renderNotices();
-  localStorage.removeItem('cache_h_notices');
-  try{
-    await fsDelete(COLL_NOTICES,String(nid));
-    touchSync('notices');
-  }catch(e){showToast('⚠️ 削除エラー: '+e.message);}
 }
 
 function updateNoticeBadge(){
@@ -4896,7 +5061,7 @@ function downloadExcel(){
   const selected=Array.from(document.querySelectorAll('#excel-staff-list input[type=checkbox]:checked')).map(cb=>cb.value);
   if(selected.length===0){showToast('⚠️ 担当者を1人以上選択してください');return;}
   
-  const filtered=entries.filter(e=>e.date>=dateFrom&&e.date<=dateTo&&selected.includes(e.staff));
+  const filtered=entries.filter(e=>!e.isDraft&&e.date>=dateFrom&&e.date<=dateTo&&selected.includes(e.staff));
   if(filtered.length===0){showToast('⚠️ 該当する日誌がありません');return;}
   
   const format=document.querySelector('input[name="excel-format"]:checked').value;
@@ -5277,18 +5442,20 @@ function showMoreHomeDiary() {
   renderHomeDiaryList();
 }
 
-function deleteHomeDiary(id) {
+async function deleteHomeDiary(id) {
   if (!confirm('削除しますか？')) return;
+  try {
+    await fsSoftDelete(COLL_HOMEDIARY, String(id), true);
+  } catch(e) {
+    console.warn('Firebase delete error:', e);
+    showToast('⚠️ 削除に失敗しました');
+    return;
+  }
+  touchSync('homediary');
+  localStorage.removeItem('cache_homediary');
   homeDiaryEntries = homeDiaryEntries.filter(e=>e.id!==id);
   saveLocal();
   renderHomeDiaryList();
-  localStorage.removeItem('cache_homediary');
-  // Firebaseからも削除
-  if(typeof fsDelete==='function'){
-    fsDelete(COLL_HOMEDIARY, String(id))
-      .then(()=>touchSync('homediary'))
-      .catch(e=>console.warn('Firebase delete error:',e));
-  }
 }
 
 function _buildHdpHTML(id){
@@ -5470,7 +5637,8 @@ function savePDFSingle(id){
 function savePDFSelected(){
   const ids=[...document.querySelectorAll('.echeck:checked')].map(c=>+c.dataset.id);
   if(!ids.length){showToast('PDFにする記録を選択してください');return;}
-  const list=entries.filter(e=>ids.includes(e.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  const list=entries.filter(e=>ids.includes(e.id)&&!e.isDraft).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!list.length){showToast('⚠️ 下書きは一括出力できません');return;}
   const pages=[];
   for(let i=0;i<list.length;){
     const e=list[i];
@@ -5626,6 +5794,20 @@ init();
   </div>
 </div>
   
+<!-- ゴミ箱 モーダル（管理者のみ） -->
+<div id="trash-modal" class="excel-modal-overlay" style="display:none;" onclick="if(event.target===this)closeTrash()">
+  <div class="excel-modal" style="max-width:640px;">
+    <div class="excel-modal-header">
+      <h3>🗑 ゴミ箱</h3>
+      <button class="excel-modal-close" onclick="closeTrash()">×</button>
+    </div>
+    <div class="excel-modal-body">
+      <div id="trash-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <div id="trash-list"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', () =>
